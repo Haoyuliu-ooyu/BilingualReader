@@ -5,9 +5,6 @@ import os
 from config import Config
 from services.db import DBService
 from services.queue import QueueService
-# Import nodes
-from nodes.parser import parse_pdf
-from nodes.translator import translate_text
 
 # Helper to download file from S3 (using boto3 directly or service)
 import boto3
@@ -55,13 +52,16 @@ def main():
             print(f"Worker Loop Error: {e}", flush=True)
             time.sleep(1)
 
+from pipeline.pipeline import run_pipeline
+
 def process_task(db, task):
     job_id = task.get('job_id')
     s3_key = task.get('s3_key')
     target_lang = task.get('target_lang', 'ES')
+    original_name = task.get('original_name', f"{job_id}.pdf")
     
     try:
-        # Update Status to PROCESSING
+        # Update Status to PROCESSING (old table)
         db.update_job_status(job_id, "PROCESSING")
         
         # 1. Download PDF
@@ -70,36 +70,17 @@ def process_task(db, task):
         if not download_file(s3_key, local_pdf_path):
             raise Exception("Download failed")
             
-        # 2. Parse PDF
-        print(f"Parsing PDF...", flush=True)
-        pages = parse_pdf(local_pdf_path)
-        
-        # 3. Translate Blocks
-        print(f"Translating to {target_lang}...", flush=True)
-        for page in pages:
-            for block in page['blocks']:
-                # Simple optimization: only translate if text is long enough
-                if len(block['text']) > 2:
-                    block['translated_text'] = translate_text(block['text'], target_lang)
-                else:
-                    block['translated_text'] = block['text']
-                    
-                # Mock term extraction for now
-                if "mitochondria" in block['text'].lower():
-                    block['terms'] = [{"term": "mitochondria", "definition": "Powerhouse of the cell"}]
-
-        # 4. Save Result
-        result_json = json.dumps({
-            "job_id": job_id,
-            "pages": pages
-        })
-        
-        db.save_translation(job_id, result_json)
+        # 2. Run Pipeline
+        print(f"Starting pipeline for {job_id}...", flush=True)
+        run_pipeline(job_id, local_pdf_path, original_name, target_lang)
         
         # Cleanup
         if os.path.exists(local_pdf_path):
             os.remove(local_pdf_path)
             
+        # Update original job record to COMPLETED (though advanced pipeline has its own tables now)
+        db.update_job_status(job_id, "COMPLETED")
+        
         print(f"Job {job_id} Completed.", flush=True)
         
     except Exception as e:
