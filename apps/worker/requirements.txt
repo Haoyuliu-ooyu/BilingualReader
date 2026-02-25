@@ -1,11 +1,10 @@
 redis
 psycopg2-binary
 requests
-langchain
-langgraph
-openai
 pymupdf
 boto3
-langchain-openai
-langchain-core
-langchain-community
+google-genai
+anthropic
+pydantic
+tenacity
+SQLAlchemy
