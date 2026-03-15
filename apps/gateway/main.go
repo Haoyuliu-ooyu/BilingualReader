@@ -89,6 +89,9 @@ func main() {
 		dbService.Pool.Exec(ctx, `ALTER TABLE user_llm_keys ADD COLUMN IF NOT EXISTS key_hint TEXT NOT NULL DEFAULT ''`)
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -139,9 +142,12 @@ func main() {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 		AllowOrigins:     []string{"*"}, // For dev, allow all
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -164,8 +170,11 @@ func main() {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 		api.POST("/upload", uploadHandler.HandleUpload)
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -191,6 +200,9 @@ func main() {
 		}
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
