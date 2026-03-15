@@ -46,12 +46,15 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	// 3. Generate Metadata
 	jobID := uuid.New().String()
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 	userID := c.PostForm("user_id")
 	if userID == "" {
 		userID = "anonymous"
 	}
 	targetLang := c.PostForm("target_lang")
 =======
+=======
+>>>>>>> Stashed changes
 
 	targetLang := c.Query("target_lang")
 	if targetLang == "" {

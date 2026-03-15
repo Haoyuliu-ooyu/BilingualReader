@@ -14,7 +14,11 @@ export default function TranslationPanel() {
 
     return (
 <<<<<<< Updated upstream:apps/web/components/TranslationPanel.tsx
+<<<<<<< Updated upstream:apps/web/components/TranslationPanel.tsx
         <div className="h-full overflow-y-auto p-4 space-y-4 bg-slate-50 border-l">
+=======
+        <div ref={scrollContainerRef} className="h-full overflow-y-auto p-4 space-y-4 bg-slate-50/50 border-l border-slate-200/50">
+>>>>>>> Stashed changes:apps/web/src/components/TranslationPanel.tsx
 =======
         <div ref={scrollContainerRef} className="h-full overflow-y-auto p-4 space-y-4 bg-slate-50/50 border-l border-slate-200/50">
 >>>>>>> Stashed changes:apps/web/src/components/TranslationPanel.tsx

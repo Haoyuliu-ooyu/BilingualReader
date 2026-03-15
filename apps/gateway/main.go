@@ -87,6 +87,9 @@ func main() {
 			log.Printf("Failed to migrate user_llm_keys table: %v", err)
 		}
 		dbService.Pool.Exec(ctx, `ALTER TABLE user_llm_keys ADD COLUMN IF NOT EXISTS key_hint TEXT NOT NULL DEFAULT ''`)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 	}
 
@@ -131,9 +134,12 @@ func main() {
 	// TODO: For production, replace AllowOrigins with your actual domain.
 	r.Use(cors.New(cors.Config{
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 		AllowOrigins:     []string{"*"}, // For dev, allow all
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
 =======
+=======
+>>>>>>> Stashed changes
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 >>>>>>> Stashed changes
@@ -150,8 +156,11 @@ func main() {
 	api := r.Group("/api")
 	{
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 		api.POST("/upload", uploadHandler.HandleUpload)
 =======
+=======
+>>>>>>> Stashed changes
 		// Public auth routes (no JWT required)
 		api.POST("/auth/register", authHandler.HandleRegister)
 		api.POST("/auth/login", authHandler.HandleLogin)
@@ -171,6 +180,9 @@ func main() {
 			protected.POST("/llm-keys", llmKeysHandler.HandleSaveKey)
 			protected.DELETE("/llm-keys/:provider", llmKeysHandler.HandleDeleteKey)
 		}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 	}
 
