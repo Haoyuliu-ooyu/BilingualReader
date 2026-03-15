@@ -1,6 +1,4 @@
-import os
 import json
-import anthropic
 from pydantic import BaseModel, Field, ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sqlalchemy.orm import Session
@@ -16,16 +14,9 @@ class TranslationOutput(BaseModel):
     items: list[TranslatedSegment]
 
 class TranslationAgent:
-    def __init__(self, db_session: Session):
+    def __init__(self, db_session: Session, llm_client=None):
         self.db = db_session
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key:
-            self.client = anthropic.Anthropic(api_key=api_key)
-        else:
-            self.client = None
-            print("Warning: ANTHROPIC_API_KEY not set. Generating mock Translations.")
-            
-        self.model = "claude-sonnet-4-6" 
+        self.llm_client = llm_client
 
     @retry(
         stop=stop_after_attempt(4),
@@ -33,11 +24,11 @@ class TranslationAgent:
         retry=retry_if_exception_type(Exception),
         reraise=True
     )
-    def call_claude(self, chunk_data: list, world_bible: dict, target_lang: str) -> list[dict]:
-        if not self.client:
-             # Mock Translation
-             return [{"seg_id": item['seg_id'], "translated_text": f"[ES] {item['original_text']}"} for item in chunk_data]
-             
+    def call_llm(self, chunk_data: list, world_bible: dict, target_lang: str) -> list[dict]:
+        if not self.llm_client:
+            # Mock Translation
+            return [{"seg_id": item['seg_id'], "translated_text": f"[{target_lang}] {item['original_text']}"} for item in chunk_data]
+
         system_prompt = (
             f"You are an expert literary translator into {target_lang}. "
             "You will receive a JSON list of objects containing 'seg_id' and 'original_text'. "
@@ -51,57 +42,63 @@ class TranslationAgent:
 
         input_json = json.dumps(chunk_data)
 
-        # We pass structured output instruction in system prompt.
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            temperature=0.2, # Low temp for translation consistency
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": f"Translate these segments:\n{input_json}"}
-            ]
+        # Estimate output tokens: each segment needs ~80 tokens for JSON overhead
+        # (seg_id, keys, translated text) — scale up for safety.
+        estimated_tokens = len(chunk_data) * 120 + 256
+        max_tokens = max(4096, estimated_tokens)
+
+        raw_text = self.llm_client.generate(
+            system_prompt=system_prompt,
+            user_message=f"Translate these segments:\n{input_json}",
+            max_tokens=max_tokens,
+            temperature=0.2,
         )
-        
-        raw_text = response.content[0].text.strip()
-        
-        # Strip markdown if Claude disobeys
+
+        # Strip markdown wrapper if the model disobeys
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:]
         if raw_text.endswith("```"):
             raw_text = raw_text[:-3]
-            
+
         try:
             parsed = json.loads(raw_text)
-            # Validate with Pydantic
             validated = TranslationOutput(**parsed)
             return [item.model_dump() for item in validated.items]
         except (json.JSONDecodeError, ValidationError) as e:
-            print(f"Claude Output Error: {e}")
+            print(f"LLM Output Error: {e}")
             print(f"Raw Output: {raw_text}")
-            raise Exception(f"Failed to parse Claude output: {e}")
+            raise Exception(f"Failed to parse LLM output: {e}")
 
-    def chunk_segments(self, segments, max_words=1000):
-        """Groups segments into chunks respecting token/word limits to avoid 4096 output cap."""
+    def chunk_segments(self, segments, max_segments=40, max_words=500):
+        """Groups segments into chunks with both segment count and word limits.
+
+        Each segment adds ~80-120 tokens of JSON overhead (seg_id, keys, braces)
+        on top of the translated text itself, so we cap both dimensions to keep
+        the LLM output well within token limits.
+        """
         chunks = []
         current_chunk = []
         current_words = 0
-        
+
         for seg in segments:
             word_count = len(seg.original_text.split())
-            if current_words + word_count > max_words and current_chunk:
+            if current_chunk and (
+                len(current_chunk) >= max_segments or
+                current_words + word_count > max_words
+            ):
                 chunks.append(current_chunk)
                 current_chunk = []
                 current_words = 0
-                
+
             current_chunk.append({
                 "seg_id": str(seg.seg_id),
                 "original_text": seg.original_text
             })
             current_words += word_count
-            
+
         if current_chunk:
             chunks.append(current_chunk)
-            
+
         return chunks
 
     def process_document(self, doc_id: str, target_lang: str):
@@ -137,13 +134,13 @@ class TranslationAgent:
         print(f"Found {len(untranslated)} untranslated segments out of {len(segments)} total.")
         
         # 3. Chunk
-        chunks = self.chunk_segments(untranslated, max_words=1200) # Safe buffer for output tokens
+        chunks = self.chunk_segments(untranslated)
         
         # 4. Process Chunks
         for idx, chunk in enumerate(chunks):
             print(f"Translating chunk {idx+1}/{len(chunks)} ({len(chunk)} segments)...")
             
-            translated_data = self.call_claude(chunk, world_bible, target_lang)
+            translated_data = self.call_llm(chunk, world_bible, target_lang)
             
             # 5. Save Results
             for item in translated_data:

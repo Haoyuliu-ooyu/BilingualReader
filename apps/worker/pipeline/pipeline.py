@@ -19,34 +19,48 @@ def init_db():
     Session = sessionmaker(bind=engine)
     return Session()
 
-def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str):
+def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str,
+                  llm_provider: str = "", llm_model: str = "", llm_api_key: str = ""):
+    """
+    llm_provider / llm_model / llm_api_key come from the job payload.
+    llm_api_key is already decrypted plaintext at this point.
+    """
+    from .llm_client import LLMClient, LLMConfig
+
     db_session = init_db()
-    
+
+    # Build a unified LLM client when credentials are available
+    llm_client = None
+    if llm_provider and llm_api_key:
+        llm_client = LLMClient(LLMConfig(
+            provider=llm_provider,
+            model=llm_model,
+            api_key=llm_api_key,
+        ))
+
     try:
         print(f"=== Starting Pipeline for {filename} (Job: {job_id}) ===")
-        
+
         # 1. Module A: Extraction
         print("\n--- PHASE 1: Spatial Extraction ---")
         extractor = PDFExtractor(db_session)
         txt_path = extractor.extract_and_save(pdf_path, job_id)
         print(f"Extraction complete. Doc ID: {job_id}")
-        
-        # 2. Module B: World Bible Generation (Gemini)
-        print("\n--- PHASE 2: Context Agent (Gemini) ---")
-        context_agent = ContextAgent(db_session)
-        # In a real scenario with checkpoints, we'd check if metadata already exists
+
+        # 2. Module B: World Bible Generation
+        print(f"\n--- PHASE 2: Context Agent ({llm_provider or 'mock'}) ---")
+        context_agent = ContextAgent(db_session, llm_client=llm_client)
         world_bible = context_agent.generate_world_bible(txt_path, job_id)
-        
-        # 3. Module C: Translation (Claude)
-        print("\n--- PHASE 3: Translation Agent (Claude) ---")
-        translator = TranslationAgent(db_session)
+
+        # 3. Module C: Translation
+        print(f"\n--- PHASE 3: Translation Agent ({llm_provider or 'mock'}) ---")
+        translator = TranslationAgent(db_session, llm_client=llm_client)
         translator.process_document(job_id, target_lang)
-        
+
         print(f"\n=== Pipeline Completed Successfully for {filename} ===")
-        
+
     except Exception as e:
         print(f"\n=== Pipeline Failed: {e} ===")
-        # In a real worker, we would update the job status to FAILED in the DB here
         db_session.rollback()
         raise
     finally:

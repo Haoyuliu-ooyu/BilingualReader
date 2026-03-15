@@ -32,5 +32,10 @@ node_modules/
 __pycache__/
 *.pyc
 
-#Cluade
+# Build artifacts
+apps/gateway/gateway
+apps/web/dist/
+
+# Claude
 CLAUDE.md
+.claude/

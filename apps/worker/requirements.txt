@@ -5,6 +5,8 @@ pymupdf
 boto3
 google-genai
 anthropic
+openai
 pydantic
 tenacity
 SQLAlchemy
+cryptography

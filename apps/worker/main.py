@@ -53,36 +53,52 @@ def main():
             time.sleep(1)
 
 from pipeline.pipeline import run_pipeline
+from pipeline.crypto import decrypt_api_key
 
 def process_task(db, task):
     job_id = task.get('job_id')
     s3_key = task.get('s3_key')
     target_lang = task.get('target_lang', 'ES')
     original_name = task.get('original_name', f"{job_id}.pdf")
-    
+    llm_provider = task.get('llm_provider', '')
+    llm_model = task.get('llm_model', '')
+    encrypted_key = task.get('llm_api_key', '')
+
+    # Decrypt the API key that was encrypted by the gateway
+    llm_api_key = ''
+    if encrypted_key:
+        try:
+            llm_api_key = decrypt_api_key(encrypted_key)
+        except Exception as e:
+            print(f"Failed to decrypt API key for job {job_id}: {e}", flush=True)
+
     try:
-        # Update Status to PROCESSING (old table)
+        # Update Status to PROCESSING
         db.update_job_status(job_id, "PROCESSING")
-        
+
         # 1. Download PDF
         local_pdf_path = f"/tmp/{job_id}.pdf"
         print(f"Downloading {s3_key} to {local_pdf_path}...", flush=True)
         if not download_file(s3_key, local_pdf_path):
             raise Exception("Download failed")
-            
+
         # 2. Run Pipeline
         print(f"Starting pipeline for {job_id}...", flush=True)
-        run_pipeline(job_id, local_pdf_path, original_name, target_lang)
-        
+        run_pipeline(
+            job_id, local_pdf_path, original_name, target_lang,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            llm_api_key=llm_api_key,
+        )
+
         # Cleanup
         if os.path.exists(local_pdf_path):
             os.remove(local_pdf_path)
-            
-        # Update original job record to COMPLETED (though advanced pipeline has its own tables now)
+
         db.update_job_status(job_id, "COMPLETED")
-        
+
         print(f"Job {job_id} Completed.", flush=True)
-        
+
     except Exception as e:
         print(f"Error processing job {job_id}: {e}", flush=True)
         db.update_job_status(job_id, "FAILED")

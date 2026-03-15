@@ -45,34 +45,15 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	// 3. Generate Metadata
 	jobID := uuid.New().String()
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-	userID := c.PostForm("user_id")
-	if userID == "" {
-		userID = "anonymous"
-	}
-	targetLang := c.PostForm("target_lang")
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
 	targetLang := c.Query("target_lang")
 	if targetLang == "" {
 		targetLang = c.PostForm("target_lang")
 	}
->>>>>>> Stashed changes
 	if targetLang == "" {
 		targetLang = "ES" // Default to Spanish
 	}
 
-<<<<<<< Updated upstream
-=======
 	llmProvider := c.Query("llm_provider")
 	if llmProvider == "" {
 		llmProvider = c.PostForm("llm_provider")
@@ -116,7 +97,6 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
->>>>>>> Stashed changes
 	s3Key := fmt.Sprintf("%s/%s%s", userID, jobID, ext)
 
 	// 4. Upload to S3
@@ -134,15 +114,12 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// We need to ensure the schema exists. For now, we assume it does or will.
 	_, err = h.DB.Pool.Exec(c.Request.Context(),
-		`INSERT INTO documents (id, user_id, original_name, s3_key, status, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
-		jobID, userID, header.Filename, s3Key, "PENDING", time.Now(),
+		`INSERT INTO documents (id, user_id, original_name, target_lang, s3_key, status, llm_provider, llm_model, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		jobID, userID, header.Filename, targetLang, s3Key, "PENDING", llmProvider, llmModel, time.Now(),
 	)
 	if err != nil {
-		// If table doesn't exist, this will fail. We should probably have a migration.
-		// For the purpose of this task, we assume infrastructure handles migrations or we do it lazily.
-		// Let's just log and error for now.
 		fmt.Printf("DB Insert Error: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save metadata"})
 		return
@@ -155,6 +132,9 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		S3Key:        s3Key,
 		OriginalName: header.Filename,
 		TargetLang:   targetLang,
+		LLMProvider:  llmProvider,
+		LLMApiKey:    encryptedKey,
+		LLMModel:     llmModel,
 	}
 
 	payloadBytes, _ := json.Marshal(payload)

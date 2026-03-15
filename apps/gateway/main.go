@@ -60,14 +60,14 @@ func main() {
 				status TEXT,
 				target_lang TEXT,
 				result JSONB,
+				llm_provider TEXT,
+				llm_model TEXT,
 				created_at TIMESTAMP
 			);
 		`)
 		if err != nil {
 			log.Printf("Failed to migrate DB: %v", err)
 		}
-<<<<<<< Updated upstream
-=======
 		// Add columns if they don't exist (for existing DBs)
 		dbService.Pool.Exec(ctx, `ALTER TABLE documents ADD COLUMN IF NOT EXISTS llm_provider TEXT`)
 		dbService.Pool.Exec(ctx, `ALTER TABLE documents ADD COLUMN IF NOT EXISTS llm_model TEXT`)
@@ -87,16 +87,6 @@ func main() {
 			log.Printf("Failed to migrate user_llm_keys table: %v", err)
 		}
 		dbService.Pool.Exec(ctx, `ALTER TABLE user_llm_keys ADD COLUMN IF NOT EXISTS key_hint TEXT NOT NULL DEFAULT ''`)
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 	}
 
 	storageService, err := services.NewStorageService(ctx)
@@ -139,22 +129,8 @@ func main() {
 	// CORS Setup
 	// TODO: For production, replace AllowOrigins with your actual domain.
 	r.Use(cors.New(cors.Config{
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-		AllowOrigins:     []string{"*"}, // For dev, allow all
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
->>>>>>> Stashed changes
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: false, // Must be false when AllowOrigins is "*"
@@ -167,18 +143,6 @@ func main() {
 
 	api := r.Group("/api")
 	{
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-		api.POST("/upload", uploadHandler.HandleUpload)
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 		// Public auth routes (no JWT required)
 		api.POST("/auth/register", authHandler.HandleRegister)
 		api.POST("/auth/login", authHandler.HandleLogin)
@@ -198,16 +162,6 @@ func main() {
 			protected.POST("/llm-keys", llmKeysHandler.HandleSaveKey)
 			protected.DELETE("/llm-keys/:provider", llmKeysHandler.HandleDeleteKey)
 		}
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 	}
 
 	port := os.Getenv("PORT")
