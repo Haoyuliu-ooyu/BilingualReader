@@ -13,7 +13,11 @@ export default function TranslationPanel() {
     const blocks = currentPageData?.blocks || []
 
     return (
+<<<<<<< Updated upstream:apps/web/components/TranslationPanel.tsx
         <div className="h-full overflow-y-auto p-4 space-y-4 bg-slate-50 border-l">
+=======
+        <div ref={scrollContainerRef} className="h-full overflow-y-auto p-4 space-y-4 bg-slate-50/50 border-l border-slate-200/50">
+>>>>>>> Stashed changes:apps/web/src/components/TranslationPanel.tsx
             {blocks.length === 0 ? (
                 <p className="text-gray-500 text-center mt-10">No translation data for this page.</p>
             ) : (
@@ -21,9 +25,9 @@ export default function TranslationPanel() {
                     <Card
                         key={block.id}
                         onClick={() => setHighlightedBlock(block.id)}
-                        className={`cursor-pointer transition-colors border ${highlightedBlock === block.id
-                            ? 'bg-blue-50 border-blue-500 shadow-sm'
-                            : 'bg-white border-gray-200 hover:border-blue-300'
+                        className={`cursor-pointer transition-all duration-300 border rounded-xl shadow-sm ${highlightedBlock === block.id
+                            ? 'bg-primary/5 border-primary/40 shadow-md scale-[1.01]'
+                            : 'bg-white border-slate-200/60 hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5'
                             }`}
                     >
                         <CardContent className="p-4">

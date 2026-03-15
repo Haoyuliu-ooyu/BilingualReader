@@ -38,7 +38,19 @@ func main() {
 		defer dbService.Close()
 		log.Println("Connected to Database")
 
-		// Create table if not exists (Lazy migration)
+		// Create tables if not exists (Lazy migration)
+		_, err = dbService.Pool.Exec(ctx, `
+			CREATE TABLE IF NOT EXISTS users (
+				id         TEXT PRIMARY KEY,
+				email      TEXT UNIQUE NOT NULL,
+				password   TEXT NOT NULL,
+				created_at TIMESTAMP DEFAULT NOW()
+			);
+		`)
+		if err != nil {
+			log.Printf("Failed to migrate users table: %v", err)
+		}
+
 		_, err = dbService.Pool.Exec(ctx, `
 			CREATE TABLE IF NOT EXISTS documents (
 				id TEXT PRIMARY KEY,
@@ -54,6 +66,28 @@ func main() {
 		if err != nil {
 			log.Printf("Failed to migrate DB: %v", err)
 		}
+<<<<<<< Updated upstream
+=======
+		// Add columns if they don't exist (for existing DBs)
+		dbService.Pool.Exec(ctx, `ALTER TABLE documents ADD COLUMN IF NOT EXISTS llm_provider TEXT`)
+		dbService.Pool.Exec(ctx, `ALTER TABLE documents ADD COLUMN IF NOT EXISTS llm_model TEXT`)
+
+		_, err = dbService.Pool.Exec(ctx, `
+			CREATE TABLE IF NOT EXISTS user_llm_keys (
+				id           TEXT PRIMARY KEY,
+				user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				provider     TEXT NOT NULL,
+				encrypted_key TEXT NOT NULL,
+				key_hint     TEXT NOT NULL DEFAULT '',
+				updated_at   TIMESTAMP DEFAULT NOW(),
+				UNIQUE(user_id, provider)
+			);
+		`)
+		if err != nil {
+			log.Printf("Failed to migrate user_llm_keys table: %v", err)
+		}
+		dbService.Pool.Exec(ctx, `ALTER TABLE user_llm_keys ADD COLUMN IF NOT EXISTS key_hint TEXT NOT NULL DEFAULT ''`)
+>>>>>>> Stashed changes
 	}
 
 	storageService, err := services.NewStorageService(ctx)
@@ -73,16 +107,39 @@ func main() {
 		Queue:   queueService,
 	}
 
+	documentHandler := &handlers.DocumentHandler{
+		DB:      dbService,
+		Storage: storageService,
+	}
+
+	modelsHandler := &handlers.ModelsHandler{
+		DB: dbService,
+	}
+
+	llmKeysHandler := &handlers.LLMKeysHandler{
+		DB: dbService,
+	}
+
+	authHandler := &handlers.AuthHandler{
+		DB: dbService,
+	}
+
 	// Setup Router
 	r := gin.Default()
 
 	// CORS Setup
+	// TODO: For production, replace AllowOrigins with your actual domain.
 	r.Use(cors.New(cors.Config{
+<<<<<<< Updated upstream
 		AllowOrigins:     []string{"*"}, // For dev, allow all
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+=======
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+>>>>>>> Stashed changes
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
+		AllowCredentials: false, // Must be false when AllowOrigins is "*"
 		MaxAge:           12 * time.Hour,
 	}))
 
@@ -92,7 +149,29 @@ func main() {
 
 	api := r.Group("/api")
 	{
+<<<<<<< Updated upstream
 		api.POST("/upload", uploadHandler.HandleUpload)
+=======
+		// Public auth routes (no JWT required)
+		api.POST("/auth/register", authHandler.HandleRegister)
+		api.POST("/auth/login", authHandler.HandleLogin)
+
+		// Protected routes (JWT required)
+		protected := api.Group("")
+		protected.Use(handlers.AuthRequired())
+		{
+			protected.GET("/auth/me", authHandler.HandleMe)
+			protected.POST("/upload", uploadHandler.HandleUpload)
+			protected.POST("/models", modelsHandler.HandleListModels)
+			protected.GET("/documents", documentHandler.GetDocumentsList)
+			protected.GET("/documents/:id", documentHandler.GetDocumentTree)
+			protected.GET("/documents/:id/pdf", documentHandler.GetDocumentPDF)
+			protected.DELETE("/documents/:id", documentHandler.DeleteDocument)
+			protected.GET("/llm-keys", llmKeysHandler.HandleListKeys)
+			protected.POST("/llm-keys", llmKeysHandler.HandleSaveKey)
+			protected.DELETE("/llm-keys/:provider", llmKeysHandler.HandleDeleteKey)
+		}
+>>>>>>> Stashed changes
 	}
 
 	port := os.Getenv("PORT")
