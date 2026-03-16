@@ -1,17 +1,18 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"gateway/services"
 )
 
+// AuthHandler handles authentication endpoints.
 type AuthHandler struct {
-	DB *services.DBService
+	authService services.AuthService
+	logger      *zap.Logger
 }
 
 type authRequest struct {
@@ -29,6 +30,11 @@ type userInfo struct {
 	Email string `json:"email"`
 }
 
+// NewAuthHandler creates a new AuthHandler.
+func NewAuthHandler(authSvc services.AuthService, logger *zap.Logger) *AuthHandler {
+	return &AuthHandler{authService: authSvc, logger: logger}
+}
+
 // HandleRegister creates a new user account and returns a JWT.
 func (h *AuthHandler) HandleRegister(c *gin.Context) {
 	var req authRequest
@@ -37,42 +43,15 @@ func (h *AuthHandler) HandleRegister(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-
-	// Check if email already exists
-	var exists bool
-	err := h.DB.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", req.Email).Scan(&exists)
+	token, userID, err := h.authService.Register(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if exists {
-		c.JSON(http.StatusConflict, gin.H{"error": "An account with this email already exists."})
-		return
-	}
-
-	// Hash password
-	hash, err := services.HashPassword(req.Password)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
-		return
-	}
-
-	// Insert user
-	userID := uuid.New().String()
-	_, err = h.DB.Pool.Exec(ctx,
-		"INSERT INTO users (id, email, password) VALUES ($1, $2, $3)",
-		userID, req.Email, hash,
-	)
-	if err != nil {
+		h.logger.Warn("registration failed", zap.String("email", req.Email), zap.Error(err))
+		// Check for duplicate email
+		if err.Error() == "an account with this email already exists" {
+			c.JSON(http.StatusConflict, gin.H{"error": "An account with this email already exists."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create account"})
-		return
-	}
-
-	// Generate JWT
-	token, err := services.GenerateToken(userID, req.Email)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
@@ -90,31 +69,16 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-
-	var userID, hash string
-	err := h.DB.Pool.QueryRow(ctx,
-		"SELECT id, password FROM users WHERE email = $1", req.Email,
-	).Scan(&userID, &hash)
+	token, userID, userEmail, err := h.authService.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
+		h.logger.Warn("login failed", zap.String("email", req.Email), zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password."})
-		return
-	}
-
-	if !services.CheckPassword(hash, req.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password."})
-		return
-	}
-
-	token, err := services.GenerateToken(userID, req.Email)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
 	c.JSON(http.StatusOK, authResponse{
 		Token: token,
-		User:  userInfo{ID: userID, Email: req.Email},
+		User:  userInfo{ID: userID, Email: userEmail},
 	})
 }
 
@@ -124,10 +88,4 @@ func (h *AuthHandler) HandleMe(c *gin.Context) {
 		ID:    c.GetString("userID"),
 		Email: c.GetString("email"),
 	})
-}
-
-// Helper used internally — not exported as a handler.
-func getUserIDFromContext(ctx context.Context) string {
-	// This is a placeholder; the actual userID comes from Gin context
-	return ""
 }

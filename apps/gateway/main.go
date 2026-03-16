@@ -3,174 +3,129 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
+	"gateway/config"
 	"gateway/handlers"
+	"gateway/migrations"
+	"gateway/repository"
 	"gateway/services"
 )
 
 func main() {
-	fmt.Println("Gateway Service Starting...")
+	// Initialize logger
+	logger, err := newLogger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer logger.Sync()
+
+	logger.Info("gateway starting")
+
+	// Load configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Fatal("failed to load config", zap.Error(err))
+	}
 
 	ctx := context.Background()
 
-	// Initialize Services
-	// Retry loop for DB connection (wait for Postgres to start)
-	var dbService *services.DBService
-	var err error
+	// Connect to database with retry
+	var pool *pgxpool.Pool
 	for i := 0; i < 10; i++ {
-		dbService, err = services.NewDBService(ctx)
+		pool, err = repository.NewPool(ctx, cfg.DBUrl)
 		if err == nil {
+			logger.Info("connected to database")
 			break
 		}
-		log.Printf("Failed to connect to DB: %v. Retrying in 2s...", err)
+		logger.Warn("failed to connect to DB, retrying...",
+			zap.Int("attempt", i+1),
+			zap.Error(err),
+		)
 		time.Sleep(2 * time.Second)
 	}
-	if err != nil {
-		log.Printf("Critical: Could not connect to DB after retries: %v", err)
-	} else {
-		defer dbService.Close()
-		log.Println("Connected to Database")
+	if pool == nil {
+		logger.Fatal("could not connect to database after 10 attempts", zap.Error(err))
+	}
+	defer pool.Close()
 
-		// Create tables if not exists (Lazy migration)
-		_, err = dbService.Pool.Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS users (
-				id         TEXT PRIMARY KEY,
-				email      TEXT UNIQUE NOT NULL,
-				password   TEXT NOT NULL,
-				created_at TIMESTAMP DEFAULT NOW()
-			);
-		`)
-		if err != nil {
-			log.Printf("Failed to migrate users table: %v", err)
-		}
-
-		_, err = dbService.Pool.Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS documents (
-				id TEXT PRIMARY KEY,
-				user_id TEXT,
-				original_name TEXT,
-				s3_key TEXT,
-				status TEXT,
-				target_lang TEXT,
-				result JSONB,
-				llm_provider TEXT,
-				llm_model TEXT,
-				created_at TIMESTAMP
-			);
-		`)
-		if err != nil {
-			log.Printf("Failed to migrate DB: %v", err)
-		}
-		// Add columns if they don't exist (for existing DBs)
-		dbService.Pool.Exec(ctx, `ALTER TABLE documents ADD COLUMN IF NOT EXISTS llm_provider TEXT`)
-		dbService.Pool.Exec(ctx, `ALTER TABLE documents ADD COLUMN IF NOT EXISTS llm_model TEXT`)
-
-		_, err = dbService.Pool.Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS user_llm_keys (
-				id           TEXT PRIMARY KEY,
-				user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-				provider     TEXT NOT NULL,
-				encrypted_key TEXT NOT NULL,
-				key_hint     TEXT NOT NULL DEFAULT '',
-				updated_at   TIMESTAMP DEFAULT NOW(),
-				UNIQUE(user_id, provider)
-			);
-		`)
-		if err != nil {
-			log.Printf("Failed to migrate user_llm_keys table: %v", err)
-		}
-		dbService.Pool.Exec(ctx, `ALTER TABLE user_llm_keys ADD COLUMN IF NOT EXISTS key_hint TEXT NOT NULL DEFAULT ''`)
+	// Run migrations
+	if err := runMigrations(cfg.DBUrl, logger); err != nil {
+		logger.Fatal("failed to run migrations", zap.Error(err))
 	}
 
+	// Initialize infrastructure services
 	storageService, err := services.NewStorageService(ctx)
 	if err != nil {
-		log.Printf("Warning: Failed to connect to Storage: %v", err)
+		logger.Warn("failed to connect to storage", zap.Error(err))
 	}
 
 	queueService, err := services.NewQueueService(ctx)
 	if err != nil {
-		log.Printf("Warning: Failed to connect to Queue: %v", err)
+		logger.Warn("failed to connect to queue", zap.Error(err))
 	}
 
-	// Initialize Handlers
-	uploadHandler := &handlers.UploadHandler{
-		Storage: storageService,
-		DB:      dbService,
-		Queue:   queueService,
+	// Initialize repositories
+	userRepo := repository.NewUserRepository(pool)
+	docRepo := repository.NewDocumentRepository(pool)
+	llmKeyRepo := repository.NewLLMKeyRepository(pool)
+	pageRepo := repository.NewPageRepository(pool)
+
+	// Initialize services
+	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret)
+	docSvc := services.NewDocumentService(docRepo, pageRepo, storageService, logger)
+	uploadSvc := services.NewUploadService(docRepo, llmKeyRepo, storageService, queueService, logger)
+
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(authSvc, logger)
+	docHandler := handlers.NewDocumentHandler(docSvc, logger)
+	uploadHandler := handlers.NewUploadHandler(uploadSvc, llmKeyRepo, logger)
+	llmKeysHandler := handlers.NewLLMKeysHandler(llmKeyRepo, logger)
+	modelsHandler := handlers.NewModelsHandler(llmKeyRepo, logger)
+
+	// Setup router
+	r := SetupRouter(cfg, authHandler, docHandler, uploadHandler, llmKeysHandler, modelsHandler, authSvc, logger)
+
+	// Start server
+	logger.Info("gateway listening", zap.String("port", cfg.Port))
+	if err := r.Run(":" + cfg.Port); err != nil {
+		logger.Fatal("failed to run server", zap.Error(err))
+	}
+}
+
+// newLogger creates a zap logger appropriate for the current environment.
+func newLogger() (*zap.Logger, error) {
+	mode := os.Getenv("GIN_MODE")
+	if mode == "release" {
+		return zap.NewProduction()
+	}
+	return zap.NewDevelopment()
+}
+
+// runMigrations applies database migrations using golang-migrate with embedded SQL files.
+func runMigrations(dbURL string, logger *zap.Logger) error {
+	source, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return fmt.Errorf("creating migration source: %w", err)
 	}
 
-	documentHandler := &handlers.DocumentHandler{
-		DB:      dbService,
-		Storage: storageService,
+	m, err := migrate.NewWithSourceInstance("iofs", source, "pgx5://"+dbURL)
+	if err != nil {
+		return fmt.Errorf("creating migrator: %w", err)
 	}
 
-	modelsHandler := &handlers.ModelsHandler{
-		DB: dbService,
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("running migrations: %w", err)
 	}
 
-	llmKeysHandler := &handlers.LLMKeysHandler{
-		DB: dbService,
-	}
-
-	authHandler := &handlers.AuthHandler{
-		DB: dbService,
-	}
-
-	// Setup Router
-	r := gin.Default()
-
-	// CORS Setup
-	// TODO: For production, replace AllowOrigins with your actual domain.
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: false, // Must be false when AllowOrigins is "*"
-		MaxAge:           12 * time.Hour,
-	}))
-
-	r.GET("/health", func(c *gin.Context) {
-		c.String(http.StatusOK, "OK")
-	})
-
-	api := r.Group("/api")
-	{
-		// Public auth routes (no JWT required)
-		api.POST("/auth/register", authHandler.HandleRegister)
-		api.POST("/auth/login", authHandler.HandleLogin)
-
-		// Protected routes (JWT required)
-		protected := api.Group("")
-		protected.Use(handlers.AuthRequired())
-		{
-			protected.GET("/auth/me", authHandler.HandleMe)
-			protected.POST("/upload", uploadHandler.HandleUpload)
-			protected.POST("/models", modelsHandler.HandleListModels)
-			protected.GET("/documents", documentHandler.GetDocumentsList)
-			protected.GET("/documents/:id", documentHandler.GetDocumentTree)
-			protected.GET("/documents/:id/pdf", documentHandler.GetDocumentPDF)
-			protected.DELETE("/documents/:id", documentHandler.DeleteDocument)
-			protected.GET("/llm-keys", llmKeysHandler.HandleListKeys)
-			protected.POST("/llm-keys", llmKeysHandler.HandleSaveKey)
-			protected.DELETE("/llm-keys/:provider", llmKeysHandler.HandleDeleteKey)
-		}
-	}
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	fmt.Printf("Gateway listening on port %s\n", port)
-	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
-	}
+	logger.Info("migrations applied successfully")
+	return nil
 }

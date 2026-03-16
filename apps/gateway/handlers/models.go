@@ -9,24 +9,36 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	"gateway/repository"
 	"gateway/services"
 )
 
+// ModelsHandler handles LLM model listing endpoints.
 type ModelsHandler struct {
-	DB *services.DBService
+	llmKeyRepo repository.LLMKeyRepository
+	logger     *zap.Logger
 }
 
+// ModelsRequest is the request body for listing models.
 type ModelsRequest struct {
 	Provider string `json:"provider"`
 	ApiKey   string `json:"api_key"`
 }
 
+// ModelInfo describes a single LLM model.
 type ModelInfo struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
+// NewModelsHandler creates a new ModelsHandler.
+func NewModelsHandler(llmKeyRepo repository.LLMKeyRepository, logger *zap.Logger) *ModelsHandler {
+	return &ModelsHandler{llmKeyRepo: llmKeyRepo, logger: logger}
+}
+
+// HandleListModels lists available models for a given provider.
 func (h *ModelsHandler) HandleListModels(c *gin.Context) {
 	var req ModelsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -40,15 +52,16 @@ func (h *ModelsHandler) HandleListModels(c *gin.Context) {
 	}
 
 	// If no API key inline, look up saved key
-	if req.ApiKey == "" && h.DB != nil {
+	if req.ApiKey == "" {
 		userID := c.GetString("userID")
-		encryptedKey, err := GetEncryptedKey(h.DB, c, userID, req.Provider)
+		encryptedKey, err := h.llmKeyRepo.GetEncryptedKey(c.Request.Context(), userID, req.Provider)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No API key provided and no saved key found for this provider."})
 			return
 		}
 		decrypted, err := services.DecryptAPIKey(encryptedKey)
 		if err != nil {
+			h.logger.Error("failed to decrypt saved key", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt saved key"})
 			return
 		}
@@ -78,6 +91,7 @@ func (h *ModelsHandler) HandleListModels(c *gin.Context) {
 	}
 
 	if err != nil {
+		h.logger.Error("failed to fetch models", zap.String("provider", req.Provider), zap.Error(err))
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}

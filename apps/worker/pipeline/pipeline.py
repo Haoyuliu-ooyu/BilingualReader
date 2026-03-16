@@ -2,7 +2,6 @@ import sys
 import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import Base
 from .extractor import PDFExtractor
 from .context_agent import ContextAgent
 from .translator import TranslationAgent
@@ -14,8 +13,6 @@ DB_URL = DB_URL_RAW.replace("postgres://", "postgresql://", 1)
 
 def init_db():
     engine = create_engine(DB_URL)
-    # Ensure tables exist for the new V2 schema
-    Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     return Session()
 

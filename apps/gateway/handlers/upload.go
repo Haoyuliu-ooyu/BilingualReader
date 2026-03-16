@@ -1,30 +1,33 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"path/filepath"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"go.uber.org/zap"
 
-	"gateway/models"
+	"gateway/repository"
 	"gateway/services"
 )
 
+// UploadHandler handles file upload endpoints.
 type UploadHandler struct {
-	Storage *services.StorageService
-	DB      *services.DBService
-	Queue   *services.QueueService
+	uploadService services.UploadService
+	llmKeyRepo    repository.LLMKeyRepository
+	logger        *zap.Logger
 }
 
+// NewUploadHandler creates a new UploadHandler.
+func NewUploadHandler(uploadSvc services.UploadService, llmKeyRepo repository.LLMKeyRepository, logger *zap.Logger) *UploadHandler {
+	return &UploadHandler{uploadService: uploadSvc, llmKeyRepo: llmKeyRepo, logger: logger}
+}
+
+// HandleUpload processes a file upload request.
 func (h *UploadHandler) HandleUpload(c *gin.Context) {
-	// 1. Get authenticated user from JWT context
 	userID := c.GetString("userID")
 
-	// 2. Validate File
+	// Validate file
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
@@ -43,15 +46,13 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 3. Generate Metadata
-	jobID := uuid.New().String()
-
+	// Parse form fields
 	targetLang := c.Query("target_lang")
 	if targetLang == "" {
 		targetLang = c.PostForm("target_lang")
 	}
 	if targetLang == "" {
-		targetLang = "ES" // Default to Spanish
+		targetLang = "ES"
 	}
 
 	llmProvider := c.Query("llm_provider")
@@ -74,74 +75,39 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// If no API key provided inline, look up the user's saved key
+	// Resolve encrypted key
 	var encryptedKey string
 	if llmApiKey != "" {
-		// Encrypt the inline API key (AES-256-GCM)
 		encryptedKey, err = services.EncryptAPIKey(llmApiKey)
 		if err != nil {
-			fmt.Printf("Encryption Error: %v\n", err)
+			h.logger.Error("encryption failed", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure API key"})
 			return
 		}
-		llmApiKey = "" // clear plaintext from memory
-	} else if h.DB != nil {
-		// Use saved key from database (already encrypted)
-		encryptedKey, err = GetEncryptedKey(h.DB, c, userID, llmProvider)
+		llmApiKey = "" // clear plaintext
+	} else {
+		// Look up saved key from database (already encrypted)
+		encryptedKey, err = h.llmKeyRepo.GetEncryptedKey(c.Request.Context(), userID, llmProvider)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No API key provided and no saved key found for this provider. Configure one in Settings."})
 			return
 		}
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "An API key is required."})
-		return
 	}
 
-	s3Key := fmt.Sprintf("%s/%s%s", userID, jobID, ext)
-
-	// 4. Upload to S3
-	err = h.Storage.UploadFile(c.Request.Context(), s3Key, file)
+	// Call upload service
+	jobID, err := h.uploadService.Upload(c.Request.Context(), services.UploadParams{
+		UserID:      userID,
+		Filename:    header.Filename,
+		TargetLang:  targetLang,
+		LLMProvider: llmProvider,
+		LLMModel:    llmModel,
+		LLMApiKey:   encryptedKey,
+		FileSize:    header.Size,
+		File:        file,
+	})
 	if err != nil {
-		fmt.Printf("S3 Upload Error: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file"})
-		return
-	}
-
-	// 5. Insert into DB
-	if h.DB == nil {
-		fmt.Println("DB Service is not initialized")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database not available"})
-		return
-	}
-
-	_, err = h.DB.Pool.Exec(c.Request.Context(),
-		`INSERT INTO documents (id, user_id, original_name, target_lang, s3_key, status, llm_provider, llm_model, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		jobID, userID, header.Filename, targetLang, s3Key, "PENDING", llmProvider, llmModel, time.Now(),
-	)
-	if err != nil {
-		fmt.Printf("DB Insert Error: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save metadata"})
-		return
-	}
-
-	// 6. Push to Redis
-	payload := models.JobPayload{
-		JobID:        jobID,
-		UserID:       userID,
-		S3Key:        s3Key,
-		OriginalName: header.Filename,
-		TargetLang:   targetLang,
-		LLMProvider:  llmProvider,
-		LLMApiKey:    encryptedKey,
-		LLMModel:     llmModel,
-	}
-
-	payloadBytes, _ := json.Marshal(payload)
-	err = h.Queue.PushTask(c.Request.Context(), "tasks:process_pdf", payloadBytes)
-	if err != nil {
-		fmt.Printf("Redis Push Error: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue job"})
+		h.logger.Error("upload failed", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process upload"})
 		return
 	}
 
