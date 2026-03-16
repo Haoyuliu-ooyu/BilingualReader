@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS translations;
+DROP TABLE IF EXISTS source_segments;
+DROP TABLE IF EXISTS pages;
+DROP TABLE IF EXISTS project_metadata;
+DROP TABLE IF EXISTS user_llm_keys;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS users;
