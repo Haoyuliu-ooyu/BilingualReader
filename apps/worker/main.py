@@ -79,6 +79,7 @@ def main():
 
 from pipeline.pipeline import run_pipeline
 from pipeline.crypto import decrypt_api_key
+from errors import LLMAuthError, LLMRateLimitError
 
 
 def process_task(db, queue, task, shutdown_event):
@@ -116,6 +117,7 @@ def process_task(db, queue, task, shutdown_event):
             llm_model=llm_model,
             llm_api_key=llm_api_key,
             shutdown_event=shutdown_event,
+            db_service=db,
         )
 
         # Cleanup
@@ -131,9 +133,17 @@ def process_task(db, queue, task, shutdown_event):
         db.update_job_status(job_id, "INTERRUPTED")
         queue.push_task("tasks:process_pdf", task)
 
+    except LLMAuthError as e:
+        db.update_error(job_id, "LLM_AUTH_FAILED", f"Invalid API key for {e.provider}")
+        log.error("job.auth_failed", job_id=job_id, provider=e.provider)
+
+    except LLMRateLimitError as e:
+        db.update_error(job_id, "LLM_RATE_LIMITED", f"Rate limit exceeded for {e.provider} after retries")
+        log.error("job.rate_limited", job_id=job_id, provider=e.provider)
+
     except Exception as e:
+        db.update_error(job_id, "PIPELINE_ERROR", str(e)[:500])
         log.error("job.failed", job_id=job_id, error=str(e))
-        db.update_job_status(job_id, "FAILED")
 
 
 if __name__ == "__main__":

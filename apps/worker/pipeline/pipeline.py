@@ -24,7 +24,7 @@ def init_db():
 
 def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str,
                   llm_provider: str = "", llm_model: str = "", llm_api_key: str = "",
-                  shutdown_event=None):
+                  shutdown_event=None, db_service=None):
     """
     llm_provider / llm_model / llm_api_key come from the job payload.
     llm_api_key is already decrypted plaintext at this point.
@@ -47,10 +47,18 @@ def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str,
         log.info("pipeline.starting", job_id=job_id, filename=filename, provider=llm_provider or "mock")
 
         # 1. Module A: Extraction
+        if db_service:
+            db_service.update_progress(job_id, "extracting")
         log.info("pipeline.phase_starting", job_id=job_id, phase="extraction")
         extractor = PDFExtractor(db_session)
         txt_path = extractor.extract_and_save(pdf_path, job_id)
         log.info("pipeline.phase_complete", job_id=job_id, phase="extraction")
+
+        # Count total segments for progress reporting
+        from .models import SourceSegment, Page
+        total_segments = db_session.query(SourceSegment).join(SourceSegment.page).filter(
+            Page.doc_id == job_id
+        ).count()
 
         # Check shutdown between phases
         if shutdown_event and shutdown_event.is_set():
@@ -58,6 +66,8 @@ def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str,
             raise InterruptedError("Shutdown requested after extraction")
 
         # 2. Module B: World Bible Generation
+        if db_service:
+            db_service.update_progress(job_id, "generating_context", total_count=total_segments)
         log.info("pipeline.phase_starting", job_id=job_id, phase="context", provider=llm_provider or "mock")
         context_agent = ContextAgent(db_session, llm_client=llm_client)
         world_bible = context_agent.generate_world_bible(txt_path, job_id)
@@ -69,8 +79,18 @@ def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str,
             raise InterruptedError("Shutdown requested after context generation")
 
         # 3. Module C: Translation
+        def on_progress(translated_count, total_count):
+            if db_service:
+                db_service.update_progress(job_id, "translating",
+                                           translated_count=translated_count,
+                                           total_count=total_count)
+
+        if db_service:
+            db_service.update_progress(job_id, "translating", total_count=total_segments)
         log.info("pipeline.phase_starting", job_id=job_id, phase="translation", provider=llm_provider or "mock")
-        translator = TranslationAgent(db_session, llm_client=llm_client)
+        translator = TranslationAgent(db_session, llm_client=llm_client,
+                                      shutdown_event=shutdown_event,
+                                      progress_callback=on_progress)
         translator.process_document(job_id, target_lang)
         log.info("pipeline.phase_complete", job_id=job_id, phase="translation")
 
