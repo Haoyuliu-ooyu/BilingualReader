@@ -46,11 +46,13 @@ Plans:
   3. LLM authentication errors (401) and content policy violations (400) fail immediately without retry; transient errors (rate limit, timeout) are retried with backoff
   4. Document status in the database shows granular progress (segment count or percentage) and specific error reasons (not just "FAILED")
   5. All worker output uses structured JSON logging (structlog) instead of print statements
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Foundation: structlog config, LLM error hierarchy, DB migration for progress, pytest infrastructure and test scaffolds
+- [ ] 02-02-PLAN.md — Infrastructure resilience: graceful shutdown with signal handling, Redis auto-reconnection, PostgreSQL reconnection, structlog migration
+- [ ] 02-03-PLAN.md — LLM error classification, smart retry predicates, progress reporting, error propagation to DB
+- [ ] 02-04-PLAN.md — Pipeline improvements: genre-aware context agent, OCR fallback, extraction quality checks, paragraph-boundary chunking
 
 ### Phase 3: Frontend Hardening
 **Goal**: Users see real-time translation progress, get actionable error messages, can retry failed translations, and experience a polished interface
@@ -91,6 +93,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Gateway Foundation | 3/3 | Complete    | 2026-03-16 |
-| 2. Worker Resilience | 0/0 | Not started | - |
+| 2. Worker Resilience | 0/4 | Not started | - |
 | 3. Frontend Hardening | 0/0 | Not started | - |
 | 4. CI/CD and Deployment | 0/0 | Not started | - |
