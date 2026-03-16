@@ -16,8 +16,12 @@ class Document(Base):
     status = Column(String, nullable=True)
     target_lang = Column(String, nullable=True)
     result = Column(JSONB, nullable=True)
+    pipeline_phase = Column(String, nullable=True)
+    translated_count = Column(Integer, default=0)
+    total_count = Column(Integer, default=0)
+    error_detail = Column(JSONB, nullable=True)
     created_at = Column(DateTime)
-    
+
     metadata_record = relationship("ProjectMetadata", back_populates="document", uselist=False, cascade="all, delete-orphan")
     pages = relationship("Page", back_populates="document", cascade="all, delete-orphan", order_by="Page.page_number")
 

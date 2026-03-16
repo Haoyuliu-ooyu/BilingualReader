@@ -10,3 +10,6 @@ pydantic
 tenacity
 SQLAlchemy
 cryptography
+structlog
+pytest
+pytest-timeout
