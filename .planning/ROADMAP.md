@@ -55,7 +55,7 @@ Plans:
 - [ ] 02-04-PLAN.md — Pipeline improvements: genre-aware context agent, OCR fallback, extraction quality checks, paragraph-boundary chunking
 
 ### Phase 3: Frontend Hardening
-**Goal**: Users see real-time translation progress, get actionable error messages, can retry failed translations, and experience a polished interface
+**Goal**: Users see real-time translation progress, get actionable error messages, can retry failed translations, and experience a polished interface with dark mode and mobile-responsive sidebar
 **Depends on**: Phase 2 (needs granular status values and error details from worker)
 **Requirements**: TUX-01, TUX-02, TUX-03, FE-01, FE-02, FE-03, FE-04, FE-05
 **Success Criteria** (what must be TRUE):
@@ -64,11 +64,13 @@ Plans:
   3. Frontend layout is polished with proper spacing, alignment, and visual consistency across all pages
   4. Error boundaries catch component crashes and show informative recovery UI instead of a white screen
   5. Server state is managed via React Query with automatic polling, caching, and stale data handling
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Gateway API extensions: progress fields in document list, retry endpoint for failed documents
+- [ ] 03-02-PLAN.md — React Query setup, shared components (ErrorBoundary, ProgressBar, Badge, Skeleton), error messages, theme hook
+- [ ] 03-03-PLAN.md — Home and Library page refactors with DocumentCard, DropZone upload, React Query migration
+- [ ] 03-04-PLAN.md — Dark mode CSS, sidebar mobile drawer, ThemeToggle, Reader/Settings React Query migration, Zustand cleanup
 
 ### Phase 4: CI/CD and Deployment
 **Goal**: The application is automatically tested, built, and deployable to a cloud VM with HTTPS and production-grade Docker configuration
@@ -94,5 +96,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Gateway Foundation | 3/3 | Complete    | 2026-03-16 |
 | 2. Worker Resilience | 3/4 | In Progress|  |
-| 3. Frontend Hardening | 0/0 | Not started | - |
+| 3. Frontend Hardening | 0/4 | Not started | - |
 | 4. CI/CD and Deployment | 0/0 | Not started | - |
