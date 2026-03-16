@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-03-16T06:27:06Z"
+status: completed
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-03-16T06:30:25.819Z"
 last_activity: 2026-03-16 -- Plan 01-03 complete (health check and S3 cleanup)
 progress:
   total_phases: 4
@@ -50,6 +50,7 @@ Progress: [██████████] 100%
 - Trend: Stable
 
 *Updated after each plan completion*
+| Phase 01 P02 | 6min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [01-01]: Handler/service/repository layer separation established as foundation pattern
 - [01-03]: Health check uses real infrastructure probes (HeadBucket, Ping) not cached status
 - [01-03]: S3 deletion failure is warning-only; orphaned objects acceptable per design decision
+- [Phase 01-02]: Rate limiter: token bucket rate.Every(6s) burst 10 for 10 req/min per IP with cleanup goroutine
+- [Phase 01-02]: AllowCredentials=true with explicit CORS origins (required for auth header support)
+- [Phase 01-02]: Input validation at handler layer: filename regex, 24-lang BCP-47 whitelist, provider enum
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T06:27:06Z
-Stopped at: Completed 01-03-PLAN.md (Phase 1 complete)
-Resume file: Next phase planning
+Last session: 2026-03-16T06:30:25.816Z
+Stopped at: Completed 01-02-PLAN.md
+Resume file: None

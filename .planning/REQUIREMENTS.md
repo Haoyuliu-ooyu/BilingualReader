@@ -7,11 +7,11 @@
 
 ### Security
 
-- [ ] **SEC-01**: Gateway restricts CORS to environment-configured origins instead of wildcard
-- [ ] **SEC-02**: Login and register endpoints are rate-limited to prevent brute force attacks
-- [ ] **SEC-03**: Gateway enforces maximum PDF file size at upload with clear error message
-- [ ] **SEC-04**: JWT secret is validated for minimum length/entropy at startup
-- [ ] **SEC-05**: File names, language codes, and user inputs are sanitized to prevent injection
+- [x] **SEC-01**: Gateway restricts CORS to environment-configured origins instead of wildcard
+- [x] **SEC-02**: Login and register endpoints are rate-limited to prevent brute force attacks
+- [x] **SEC-03**: Gateway enforces maximum PDF file size at upload with clear error message
+- [x] **SEC-04**: JWT secret is validated for minimum length/entropy at startup
+- [x] **SEC-05**: File names, language codes, and user inputs are sanitized to prevent injection
 
 ### Gateway Architecture
 
@@ -89,11 +89,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
-| SEC-04 | Phase 1 | Pending |
-| SEC-05 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Complete |
+| SEC-02 | Phase 1 | Complete |
+| SEC-03 | Phase 1 | Complete |
+| SEC-04 | Phase 1 | Complete |
+| SEC-05 | Phase 1 | Complete |
 | GW-01 | Phase 1 | Complete |
 | GW-02 | Phase 1 | Complete |
 | GW-03 | Phase 1 | Complete |
