@@ -1,0 +1,127 @@
+# Requirements: BilingualReader
+
+**Defined:** 2026-03-15
+**Core Value:** The translation output must be accurate, consistent, and complete — every segment translated with proper glossary/style coherence across the document.
+
+## v1 Requirements
+
+### Security
+
+- [ ] **SEC-01**: Gateway restricts CORS to environment-configured origins instead of wildcard
+- [ ] **SEC-02**: Login and register endpoints are rate-limited to prevent brute force attacks
+- [ ] **SEC-03**: Gateway enforces maximum PDF file size at upload with clear error message
+- [ ] **SEC-04**: JWT secret is validated for minimum length/entropy at startup
+- [ ] **SEC-05**: File names, language codes, and user inputs are sanitized to prevent injection
+
+### Gateway Architecture
+
+- [ ] **GW-01**: Gateway restructured into handler/service/repository layers with dependency injection
+- [ ] **GW-02**: Database schema managed via versioned migration tool (golang-migrate), replacing inline DDL
+- [ ] **GW-03**: Gateway uses structured logging (zap) instead of fmt/log Printf
+- [ ] **GW-04**: Gateway exposes health check endpoint reporting DB, Redis, and S3 connectivity
+- [ ] **GW-05**: Document deletion also removes associated S3 objects
+
+### Worker Resilience
+
+- [ ] **WRK-01**: Worker handles OS signals (SIGTERM/SIGINT) for graceful shutdown, finishing current job before exit
+- [ ] **WRK-02**: Worker automatically reconnects to Redis after connection drops
+- [ ] **WRK-03**: Worker uses structured logging (structlog) instead of print statements
+- [ ] **WRK-04**: Worker propagates specific error reasons (rate limit, auth failure, truncation) to document status in DB
+- [ ] **WRK-05**: Worker reports segment-level translation progress to DB (percentage or segment count)
+- [ ] **WRK-06**: Worker classifies LLM exceptions and only retries on transient errors (not auth failures)
+
+### Translation UX
+
+- [ ] **TUX-01**: User can retry a failed translation from the frontend without re-uploading
+- [ ] **TUX-02**: User sees granular translation progress (segment count or percentage) during processing
+- [ ] **TUX-03**: User sees specific error reason when translation fails (not generic "FAILED")
+
+### Frontend
+
+- [ ] **FE-01**: Frontend layout is polished with proper spacing, alignment, and visual refinement
+- [ ] **FE-02**: Frontend has error boundaries with informative error states
+- [ ] **FE-03**: Frontend uses React Query for server state management, replacing manual polling
+- [ ] **FE-04**: Frontend displays translation progress from worker (percentage/segments)
+- [ ] **FE-05**: Frontend provides retry button for failed documents
+
+### Deployment
+
+- [ ] **DEP-01**: HTTPS configured via Caddy reverse proxy with automatic TLS certificates
+- [ ] **DEP-02**: Production Docker Compose config with restart policies, health checks, and no dev volume mounts
+- [ ] **DEP-03**: CI/CD pipeline via GitHub Actions with per-service path filtering (build, test, deploy)
+
+## v2 Requirements
+
+### Translation Enhancement
+
+- **TENH-01**: LLM provider failover — automatically try backup provider if primary fails
+- **TENH-02**: API key validation endpoint — test key validity before starting translation
+- **TENH-03**: Translation quality scoring — automatic quality assessment of translations
+
+### Real-time UX
+
+- **RTUX-01**: Replace polling with SSE/WebSocket for real-time progress updates
+- **RTUX-02**: Segment-level translation editing — users can fix individual segments
+
+### Scaling
+
+- **SCALE-01**: Multi-worker horizontal scaling with Redis-based job locking
+- **SCALE-02**: Translation memory/caching — cache identical segments across documents
+
+### Export
+
+- **EXP-01**: Export bilingual document as downloadable PDF with preserved layout
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Real-time collaboration | Single-user tool; CRDT/OT adds massive complexity |
+| Custom ML translation models | BYO-LLM is the model; training custom models is a different product |
+| Mobile app | Web-only; responsive design covers tablet viewing |
+| Kubernetes deployment | Docker Compose on cloud VM is appropriate for current scale |
+| OAuth/social login | Email/password sufficient; OAuth adds provider dependencies |
+| Multi-language per document | Single target language per job; can re-translate sequentially |
+| Public API/webhooks | Web-only product; consider API later if demand emerges |
+| Admin dashboard | Use structured logs and health endpoints for ops visibility |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SEC-01 | — | Pending |
+| SEC-02 | — | Pending |
+| SEC-03 | — | Pending |
+| SEC-04 | — | Pending |
+| SEC-05 | — | Pending |
+| GW-01 | — | Pending |
+| GW-02 | — | Pending |
+| GW-03 | — | Pending |
+| GW-04 | — | Pending |
+| GW-05 | — | Pending |
+| WRK-01 | — | Pending |
+| WRK-02 | — | Pending |
+| WRK-03 | — | Pending |
+| WRK-04 | — | Pending |
+| WRK-05 | — | Pending |
+| WRK-06 | — | Pending |
+| TUX-01 | — | Pending |
+| TUX-02 | — | Pending |
+| TUX-03 | — | Pending |
+| FE-01 | — | Pending |
+| FE-02 | — | Pending |
+| FE-03 | — | Pending |
+| FE-04 | — | Pending |
+| FE-05 | — | Pending |
+| DEP-01 | — | Pending |
+| DEP-02 | — | Pending |
+| DEP-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 27 total
+- Mapped to phases: 0
+- Unmapped: 27 ⚠️
+
+---
+*Requirements defined: 2026-03-15*
+*Last updated: 2026-03-15 after initial definition*
