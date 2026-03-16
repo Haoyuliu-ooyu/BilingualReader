@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -10,6 +13,29 @@ import (
 	"gateway/repository"
 	"gateway/services"
 )
+
+const maxUploadSize int64 = 50 * 1024 * 1024 // 50 MB
+
+// validFilenameRegex: alphanumeric start, then alphanumeric, dots, hyphens, underscores, spaces. Max 255 chars.
+var validFilenameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\- ]{0,254}$`)
+
+func isValidFilename(name string) bool {
+	return validFilenameRegex.MatchString(name)
+}
+
+// allowedLanguages is a BCP-47 language code whitelist.
+var allowedLanguages = map[string]bool{
+	"en": true, "zh": true, "ja": true, "ko": true,
+	"fr": true, "de": true, "es": true, "pt": true,
+	"it": true, "ru": true, "ar": true, "hi": true,
+	"th": true, "vi": true, "nl": true, "pl": true,
+	"sv": true, "da": true, "fi": true, "no": true,
+	"tr": true, "id": true, "ms": true, "uk": true,
+}
+
+func isValidLanguageCode(code string) bool {
+	return allowedLanguages[strings.ToLower(code)]
+}
 
 // UploadHandler handles file upload endpoints.
 type UploadHandler struct {
@@ -35,8 +61,15 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	}
 	defer file.Close()
 
-	if header.Size > 10*1024*1024 { // 10MB limit
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File too large"})
+	// Enforce 50 MB file size limit
+	if header.Size > maxUploadSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("File too large. Maximum size is 50 MB, got %d MB.", header.Size/(1024*1024))})
+		return
+	}
+
+	// Validate filename characters
+	if !isValidFilename(header.Filename) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filename. Use only letters, numbers, dots, hyphens, underscores, and spaces."})
 		return
 	}
 
@@ -53,6 +86,12 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	}
 	if targetLang == "" {
 		targetLang = "ES"
+	}
+
+	// Validate language code
+	if !isValidLanguageCode(targetLang) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Unsupported language code: %s. Supported: en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, nl, pl, sv, da, fi, no, tr, id, ms, uk.", targetLang)})
+		return
 	}
 
 	llmProvider := c.Query("llm_provider")
@@ -72,6 +111,12 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	if llmProvider == "" || llmModel == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "An LLM provider and model are required. Configure them in Settings."})
+		return
+	}
+
+	// Validate LLM provider
+	if llmProvider != "openai" && llmProvider != "gemini" && llmProvider != "claude" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Unsupported LLM provider: %s. Use openai, gemini, or claude.", llmProvider)})
 		return
 	}
 
