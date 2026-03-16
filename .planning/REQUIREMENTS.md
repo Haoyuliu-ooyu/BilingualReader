@@ -89,39 +89,39 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | — | Pending |
-| SEC-02 | — | Pending |
-| SEC-03 | — | Pending |
-| SEC-04 | — | Pending |
-| SEC-05 | — | Pending |
-| GW-01 | — | Pending |
-| GW-02 | — | Pending |
-| GW-03 | — | Pending |
-| GW-04 | — | Pending |
-| GW-05 | — | Pending |
-| WRK-01 | — | Pending |
-| WRK-02 | — | Pending |
-| WRK-03 | — | Pending |
-| WRK-04 | — | Pending |
-| WRK-05 | — | Pending |
-| WRK-06 | — | Pending |
-| TUX-01 | — | Pending |
-| TUX-02 | — | Pending |
-| TUX-03 | — | Pending |
-| FE-01 | — | Pending |
-| FE-02 | — | Pending |
-| FE-03 | — | Pending |
-| FE-04 | — | Pending |
-| FE-05 | — | Pending |
-| DEP-01 | — | Pending |
-| DEP-02 | — | Pending |
-| DEP-03 | — | Pending |
+| SEC-01 | Phase 1 | Pending |
+| SEC-02 | Phase 1 | Pending |
+| SEC-03 | Phase 1 | Pending |
+| SEC-04 | Phase 1 | Pending |
+| SEC-05 | Phase 1 | Pending |
+| GW-01 | Phase 1 | Pending |
+| GW-02 | Phase 1 | Pending |
+| GW-03 | Phase 1 | Pending |
+| GW-04 | Phase 1 | Pending |
+| GW-05 | Phase 1 | Pending |
+| WRK-01 | Phase 2 | Pending |
+| WRK-02 | Phase 2 | Pending |
+| WRK-03 | Phase 2 | Pending |
+| WRK-04 | Phase 2 | Pending |
+| WRK-05 | Phase 2 | Pending |
+| WRK-06 | Phase 2 | Pending |
+| TUX-01 | Phase 3 | Pending |
+| TUX-02 | Phase 3 | Pending |
+| TUX-03 | Phase 3 | Pending |
+| FE-01 | Phase 3 | Pending |
+| FE-02 | Phase 3 | Pending |
+| FE-03 | Phase 3 | Pending |
+| FE-04 | Phase 3 | Pending |
+| FE-05 | Phase 3 | Pending |
+| DEP-01 | Phase 4 | Pending |
+| DEP-02 | Phase 4 | Pending |
+| DEP-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27 ⚠️
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after initial definition*
+*Last updated: 2026-03-15 after roadmap creation*
