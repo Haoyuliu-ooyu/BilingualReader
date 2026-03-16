@@ -10,8 +10,8 @@ progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
-  percent: 57
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -26,34 +26,35 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 2 of 4 (Worker Resilience)
-Plan: 2 of 4 in current phase
-Status: Plan 02-02 complete
-Last activity: 2026-03-16 -- Plan 02-02 complete (infrastructure resilience)
+Plan: 3 of 4 in current phase
+Status: Plan 02-03 complete
+Last activity: 2026-03-16 -- Plan 02-03 complete (error classification and progress)
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 4min
-- Total execution time: 0.3 hours
+- Total execution time: 0.4 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-gateway-foundation | 3/3 | 13min | 4min |
-| 02-worker-resilience | 2/4 | 6min | 3min |
+| 02-worker-resilience | 3/4 | 12min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 5min, 5min, 3min, 3min
+- Last 5 plans: 5min, 5min, 3min, 3min, 6min
 - Trend: Stable
 
 *Updated after each plan completion*
 | Phase 01 P02 | 6min | 2 tasks | 6 files |
 | Phase 02 P01 | 3min | 2 tasks | 14 files |
 | Phase 02 P02 | 3min | 3 tasks | 7 files |
+| Phase 02 P03 | 6min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [02-02]: DBService uses tenacity for connection + operation retries with matching backoff
 - [02-02]: Shutdown checks between pipeline phases raise InterruptedError for re-queue flow
 - [02-02]: SQLAlchemy pool_pre_ping=True and pool_recycle=3600 for connection health
+- [02-03]: Incomplete LLM responses raise LLMTransientError (retryable) instead of generic Exception
+- [02-03]: Gemini SAFETY and RECITATION finish_reasons both map to LLMContentPolicyError
+- [02-03]: Smart retry predicate: retry_if_exception_type((LLMRateLimitError, LLMTransientError)) replaces blanket Exception
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:03:04Z
-Stopped at: Completed 02-02-PLAN.md
-Resume file: .planning/phases/02-worker-resilience/02-02-SUMMARY.md
+Last session: 2026-03-16T19:11:30Z
+Stopped at: Completed 02-03-PLAN.md
+Resume file: .planning/phases/02-worker-resilience/02-03-SUMMARY.md
