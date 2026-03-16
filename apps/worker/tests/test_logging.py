@@ -1,6 +1,8 @@
 """Tests for structured logging configuration (WRK-03)."""
 
-import pytest
+import ast
+import os
+
 import structlog
 import structlog.testing
 
@@ -21,7 +23,20 @@ def test_structlog_configured_json_output():
     assert entry["key"] == "value"
 
 
-@pytest.mark.skip(reason="Validated after plan 02 replaces all print() calls")
-def test_no_print_statements_in_source():
-    """Source code should use structlog instead of print()."""
-    pass
+def test_no_print_in_infrastructure_files():
+    """Verify infrastructure files use structlog, not print()."""
+    files = ["main.py", "services/queue.py", "services/db.py", "pipeline/pipeline.py"]
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for f in files:
+        path = os.path.join(base, f)
+        with open(path) as fh:
+            tree = ast.parse(fh.read())
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "print"
+            ):
+                raise AssertionError(
+                    f"{f} contains print() call at line {node.lineno}"
+                )
