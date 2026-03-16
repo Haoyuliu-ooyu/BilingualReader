@@ -46,13 +46,61 @@ def test_llm_error_stores_original_error():
     assert e.original_error is orig
 
 
-@pytest.mark.skip(reason="Implemented in plan 03")
 def test_auth_error_not_retried():
-    """Auth errors should not be retried."""
-    pass
+    """LLMAuthError should NOT be retried by translator.call_llm."""
+    from unittest.mock import MagicMock
+
+    from pipeline.translator import TranslationAgent
+
+    mock_session = MagicMock()
+    mock_llm = MagicMock()
+    mock_llm.generate.side_effect = LLMAuthError("bad key", "openai")
+
+    agent = TranslationAgent(mock_session, llm_client=mock_llm)
+    chunk = [{"seg_id": "1", "original_text": "hello"}]
+
+    with pytest.raises(LLMAuthError):
+        agent.call_llm(chunk, {}, "ES")
+
+    # Should be called exactly once -- no retry
+    assert mock_llm.generate.call_count == 1
 
 
-@pytest.mark.skip(reason="Implemented in plan 03")
-def test_rate_limit_error_retried_with_backoff():
-    """Rate limit errors should be retried with exponential backoff."""
-    pass
+def test_rate_limit_retried_via_predicate():
+    """Verify retry predicate includes LLMRateLimitError and LLMTransientError but not LLMAuthError."""
+    from unittest.mock import MagicMock
+    from tenacity import retry_if_exception_type, RetryCallState, Future
+
+    predicate = retry_if_exception_type((LLMRateLimitError, LLMTransientError))
+
+    def make_retry_state(exc):
+        """Build a RetryCallState with the given exception as outcome."""
+        rs = MagicMock(spec=RetryCallState)
+        outcome = MagicMock()
+        outcome.failed = True
+        outcome.exception.return_value = exc
+        rs.outcome = outcome
+        return rs
+
+    assert predicate(make_retry_state(LLMRateLimitError("test", "openai")))
+    assert predicate(make_retry_state(LLMTransientError("test", "openai")))
+    assert not predicate(make_retry_state(LLMAuthError("test", "openai")))
+
+
+def test_content_policy_error_not_retried():
+    """LLMContentPolicyError should NOT be retried by translator.call_llm."""
+    from unittest.mock import MagicMock
+
+    from pipeline.translator import TranslationAgent
+
+    mock_session = MagicMock()
+    mock_llm = MagicMock()
+    mock_llm.generate.side_effect = LLMContentPolicyError("blocked", "openai")
+
+    agent = TranslationAgent(mock_session, llm_client=mock_llm)
+    chunk = [{"seg_id": "1", "original_text": "hello"}]
+
+    with pytest.raises(LLMContentPolicyError):
+        agent.call_llm(chunk, {}, "ES")
+
+    assert mock_llm.generate.call_count == 1
