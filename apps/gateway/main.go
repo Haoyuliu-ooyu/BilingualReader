@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -121,7 +122,17 @@ func runMigrations(dbURL string, logger *zap.Logger) error {
 		return fmt.Errorf("creating migration source: %w", err)
 	}
 
-	m, err := migrate.NewWithSourceInstance("iofs", source, "pgx5://"+dbURL)
+	// golang-migrate's pgx5 driver requires the "pgx5://" scheme, but DB_URL
+	// uses the standard "postgres://" or "postgresql://" scheme.  Replace it
+	// so we don't produce a double-scheme URL like "pgx5://postgres://...".
+	migrateURL := dbURL
+	if strings.HasPrefix(migrateURL, "postgresql://") {
+		migrateURL = "pgx5://" + strings.TrimPrefix(migrateURL, "postgresql://")
+	} else if strings.HasPrefix(migrateURL, "postgres://") {
+		migrateURL = "pgx5://" + strings.TrimPrefix(migrateURL, "postgres://")
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", source, migrateURL)
 	if err != nil {
 		return fmt.Errorf("creating migrator: %w", err)
 	}
