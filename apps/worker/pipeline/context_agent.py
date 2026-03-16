@@ -44,6 +44,7 @@ class ContextAgent:
             user_message=f"Book Content:\n{text}",
             max_tokens=4096,
             temperature=0.3,
+            json_mode=True,
         )
 
     def generate_world_bible(self, txt_path: str, doc_id: str) -> dict:

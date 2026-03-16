@@ -40,18 +40,23 @@ class LLMClient:
         user_message: str,
         max_tokens: int = 4096,
         temperature: float = 0.2,
+        json_mode: bool = False,
     ) -> str:
-        """Returns the raw text response from the chosen provider."""
+        """Returns the raw text response from the chosen provider.
+
+        When json_mode=True, providers that support structured JSON output
+        (OpenAI, Gemini) are configured to enforce valid JSON responses.
+        """
         if self.config.provider == "openai":
-            return self._call_openai(system_prompt, user_message, max_tokens, temperature)
+            return self._call_openai(system_prompt, user_message, max_tokens, temperature, json_mode)
         elif self.config.provider == "gemini":
-            return self._call_gemini(system_prompt, user_message, max_tokens, temperature)
+            return self._call_gemini(system_prompt, user_message, max_tokens, temperature, json_mode)
         elif self.config.provider == "claude":
             return self._call_claude(system_prompt, user_message, max_tokens, temperature)
 
     # ------------------------------------------------------------------
-    def _call_openai(self, system: str, user: str, max_tokens: int, temperature: float) -> str:
-        resp = self.openai.chat.completions.create(
+    def _call_openai(self, system: str, user: str, max_tokens: int, temperature: float, json_mode: bool) -> str:
+        kwargs = dict(
             model=self.config.model,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -60,18 +65,40 @@ class LLMClient:
                 {"role": "user", "content": user},
             ],
         )
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        resp = self.openai.chat.completions.create(**kwargs)
         return resp.choices[0].message.content.strip()
 
-    def _call_gemini(self, system: str, user: str, max_tokens: int, temperature: float) -> str:
-        combined = f"{system}\n\n{user}"
+    def _call_gemini(self, system: str, user: str, max_tokens: int, temperature: float, json_mode: bool) -> str:
+        from google.genai import types
+
+        config_kwargs = dict(
+            system_instruction=system,
+            max_output_tokens=max_tokens,
+            temperature=temperature,
+        )
+        if json_mode:
+            config_kwargs["response_mime_type"] = "application/json"
+
         resp = self.gemini.models.generate_content(
             model=self.config.model,
-            contents=combined,
-            config={
-                "max_output_tokens": max_tokens,
-                "temperature": temperature,
-            },
+            contents=user,
+            config=types.GenerateContentConfig(**config_kwargs),
         )
+
+        # Log finish reason for debugging truncation issues
+        finish_reason = None
+        if resp.candidates:
+            finish_reason = resp.candidates[0].finish_reason
+        print(f"[Gemini] max_output_tokens={max_tokens}, finish_reason={finish_reason}")
+
+        if finish_reason and str(finish_reason) == "MAX_TOKENS":
+            raise Exception(
+                f"Gemini output truncated (hit {max_tokens} token limit). "
+                "Increase max_tokens or reduce chunk size."
+            )
+
         return resp.text.strip()
 
     def _call_claude(self, system: str, user: str, max_tokens: int, temperature: float) -> str:
