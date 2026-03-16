@@ -1,13 +1,13 @@
 package main
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	"gateway/config"
 	"gateway/handlers"
@@ -22,6 +22,7 @@ func SetupRouter(
 	uploadHandler *handlers.UploadHandler,
 	llmKeysHandler *handlers.LLMKeysHandler,
 	modelsHandler *handlers.ModelsHandler,
+	healthHandler *handlers.HealthHandler,
 	authService services.AuthService,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -37,20 +38,25 @@ func SetupRouter(
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Public health endpoint (placeholder -- Plan 03 upgrades this)
-	r.GET("/health", func(c *gin.Context) {
-		c.String(http.StatusOK, "OK")
-	})
+	// Public health endpoint (no auth required -- accessible to Docker health checks and load balancers)
+	r.GET("/health", healthHandler.HandleHealth)
+
+	// Per-IP rate limiter: 10 requests per minute (one token every 6 seconds, burst of 10)
+	rateLimiter := handlers.NewIPRateLimiter(rate.Every(6*time.Second), 10)
 
 	api := r.Group("/api")
 	{
-		// Public auth routes (no JWT required)
-		api.POST("/auth/register", authHandler.HandleRegister)
-		api.POST("/auth/login", authHandler.HandleLogin)
+		// Public auth routes with rate limiting (no JWT required)
+		authGroup := api.Group("/auth")
+		authGroup.Use(handlers.RateLimitMiddleware(rateLimiter))
+		{
+			authGroup.POST("/register", authHandler.HandleRegister)
+			authGroup.POST("/login", authHandler.HandleLogin)
+		}
 
 		// Protected routes (JWT required)
 		protected := api.Group("")

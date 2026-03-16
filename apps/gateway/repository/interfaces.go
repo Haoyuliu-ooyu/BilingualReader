@@ -62,3 +62,10 @@ type LLMKeyRepository interface {
 type PageRepository interface {
 	GetDocumentTree(ctx context.Context, docID string) ([]Page, error)
 }
+
+// HealthRepository defines health-check probes for infrastructure dependencies.
+type HealthRepository interface {
+	PingDB(ctx context.Context) error
+	PingRedis(ctx context.Context) error
+	PingS3(ctx context.Context) error
+}

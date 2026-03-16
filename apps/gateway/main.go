@@ -84,15 +84,19 @@ func main() {
 	docSvc := services.NewDocumentService(docRepo, pageRepo, storageService, logger)
 	uploadSvc := services.NewUploadService(docRepo, llmKeyRepo, storageService, queueService, logger)
 
+	// Initialize health repository (needs direct access to infrastructure clients)
+	healthRepo := repository.NewHealthRepository(pool, queueService.Client, storageService.Client, storageService.Bucket)
+
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authSvc, logger)
 	docHandler := handlers.NewDocumentHandler(docSvc, logger)
 	uploadHandler := handlers.NewUploadHandler(uploadSvc, llmKeyRepo, logger)
 	llmKeysHandler := handlers.NewLLMKeysHandler(llmKeyRepo, logger)
 	modelsHandler := handlers.NewModelsHandler(llmKeyRepo, logger)
+	healthHandler := handlers.NewHealthHandler(healthRepo, logger)
 
 	// Setup router
-	r := SetupRouter(cfg, authHandler, docHandler, uploadHandler, llmKeysHandler, modelsHandler, authSvc, logger)
+	r := SetupRouter(cfg, authHandler, docHandler, uploadHandler, llmKeysHandler, modelsHandler, healthHandler, authSvc, logger)
 
 	// Start server
 	logger.Info("gateway listening", zap.String("port", cfg.Port))
