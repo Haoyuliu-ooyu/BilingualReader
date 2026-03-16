@@ -65,13 +65,13 @@ def run_pipeline(job_id: str, pdf_path: str, filename: str, target_lang: str,
             log.info("pipeline.shutdown_between_phases", job_id=job_id, phase="extraction")
             raise InterruptedError("Shutdown requested after extraction")
 
-        # 2. Module B: World Bible Generation
+        # 2. Module B: Translation Context Generation
         if db_service:
             db_service.update_progress(job_id, "generating_context", total_count=total_segments)
-        log.info("pipeline.phase_starting", job_id=job_id, phase="context", provider=llm_provider or "mock")
+        log.info("pipeline.phase_starting", job_id=job_id, phase="translation_context", provider=llm_provider or "mock")
         context_agent = ContextAgent(db_session, llm_client=llm_client)
-        world_bible = context_agent.generate_world_bible(txt_path, job_id)
-        log.info("pipeline.phase_complete", job_id=job_id, phase="context")
+        translation_context = context_agent.generate_translation_context(txt_path, job_id)
+        log.info("pipeline.phase_complete", job_id=job_id, phase="translation_context")
 
         # Check shutdown between phases
         if shutdown_event and shutdown_event.is_set():
