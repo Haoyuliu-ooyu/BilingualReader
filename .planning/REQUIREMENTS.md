@@ -23,8 +23,8 @@
 
 ### Worker Resilience
 
-- [ ] **WRK-01**: Worker handles OS signals (SIGTERM/SIGINT) for graceful shutdown, finishing current job before exit
-- [ ] **WRK-02**: Worker automatically reconnects to Redis after connection drops
+- [x] **WRK-01**: Worker handles OS signals (SIGTERM/SIGINT) for graceful shutdown, finishing current job before exit
+- [x] **WRK-02**: Worker automatically reconnects to Redis after connection drops
 - [x] **WRK-03**: Worker uses structured logging (structlog) instead of print statements
 - [x] **WRK-04**: Worker propagates specific error reasons (rate limit, auth failure, truncation) to document status in DB
 - [x] **WRK-05**: Worker reports segment-level translation progress to DB (percentage or segment count)
@@ -99,8 +99,8 @@
 | GW-03 | Phase 1 | Complete |
 | GW-04 | Phase 1 | Complete |
 | GW-05 | Phase 1 | Complete |
-| WRK-01 | Phase 2 | Pending |
-| WRK-02 | Phase 2 | Pending |
+| WRK-01 | Phase 2 | Complete |
+| WRK-02 | Phase 2 | Complete |
 | WRK-03 | Phase 2 | Complete |
 | WRK-04 | Phase 2 | Complete |
 | WRK-05 | Phase 2 | Complete |
