@@ -49,14 +49,14 @@ Exceptions: Touch target minimum 44px for mobile sidebar nav items and retry but
 
 | Role | Size | Weight | Line Height | Tailwind Class |
 |------|------|--------|-------------|----------------|
-| Caption | 11px | 400 (regular) | 1.4 | `text-[11px]` |
-| Label / Small | 13px | 500 (medium) | 1.4 | `text-xs font-medium` (13px via Tailwind default) |
-| Body | 14px | 400 (regular) | 1.5 | `text-sm` |
-| Subheading | 20px | 500 (medium) | 1.3 | `text-xl font-medium` |
+| Body / Label | 14px | 400 (regular) | 1.5 | `text-sm` (labels differentiated by `uppercase tracking-wide` or context, not weight) |
+| Subheading | 20px | 600 (semibold) | 1.3 | `text-xl font-semibold` |
 | Heading | 24px | 600 (semibold) | 1.2 | `text-2xl font-semibold` (existing CardTitle) |
 | Page title | 30px | 600 (semibold) | 1.2 | `text-3xl font-semibold` (existing Home h1) |
 
-Weights used: 400 (regular), 500 (medium), 600 (semibold). Three weights justified because existing code already uses all three (body text at 400, nav labels at 500, headings at 600).
+Weights used: 400 (regular) for body text, labels, descriptions; 600 (semibold) for all headings, subheadings, and CTAs. All previous `font-medium` (500) usages must be migrated to either 400 or 600 -- nav labels and subheadings move to 600, secondary text moves to 400.
+
+Caption-sized text (formerly 11px) uses Body size (14px) at regular weight with `text-muted-foreground` for visual de-emphasis. Small labels (formerly 13px) also use 14px, differentiated by color or letter-spacing rather than size.
 
 ---
 
@@ -150,7 +150,7 @@ Current globals.css uses `@media (prefers-color-scheme: dark)` which only respon
 - Border: `border-red-200 dark:border-red-800`
 - Text: mapped error message from table above
 - Actions: `[Retry]` button (primary style, compact) + `[Details]` button (ghost style, compact)
-- Details expanded: raw `error_message` from API in `text-xs text-muted-foreground` monospace
+- Details expanded: raw `error_message` from API in `text-sm text-muted-foreground` monospace
 
 ### Partial Results Banner (Reader Page)
 
@@ -218,6 +218,25 @@ Current globals.css uses `@media (prefers-color-scheme: dark)` which only respon
 
 ---
 
+## Accessibility: Icon-Only Interactive Elements
+
+All icon-only interactive elements must include an `aria-label` attribute. The following elements are identified:
+
+| Element | Icon | aria-label |
+|---------|------|------------|
+| Collapsed sidebar nav: Home | `Home` (lucide) | `"Home"` |
+| Collapsed sidebar nav: Library | `Library` (lucide) | `"Library"` |
+| Collapsed sidebar nav: Settings | `Settings` (lucide) | `"Settings"` |
+| Collapsed sidebar nav: Logout | `LogOut` (lucide) | `"Log out"` |
+| Collapsed sidebar: Collapse toggle | `PanelLeftClose` / `PanelLeftOpen` (lucide) | `"Collapse sidebar"` / `"Expand sidebar"` |
+| Document card: Delete | `Trash2` (lucide) | `"Delete document"` |
+| Theme toggle | `Sun` / `Moon` (lucide) | `"Switch to dark mode"` / `"Switch to light mode"` |
+| Partial results banner: Dismiss | `X` (lucide) | `"Dismiss"` |
+
+Strategy: icon-only buttons use `<button aria-label="...">` directly. Sidebar nav links in collapsed mode use `<a aria-label="...">` or `<NavLink aria-label="...">`. Labels are always present regardless of collapsed/expanded state (redundant but harmless when text is visible).
+
+---
+
 ## Skeleton Loading Patterns
 
 | Page | Skeleton Layout |
@@ -254,7 +273,7 @@ Skeleton implementation: shared `Skeleton` component -- a `div` with `animate-pu
 - Background track: `bg-muted`
 - Fill (determinate): `bg-primary` with spring animation
 - Fill (indeterminate): `bg-primary/50` with `animate-pulse`
-- Text above bar: `text-xs text-muted-foreground`
+- Text above bar: `text-sm text-muted-foreground`
 
 ### DropZone Dimensions
 
