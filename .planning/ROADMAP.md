@@ -12,7 +12,7 @@ BilingualReader is a working prototype that needs production hardening. This mil
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Gateway Foundation** - Restructure gateway into layered architecture with security hardening and schema migrations
+- [x] **Phase 1: Gateway Foundation** - Restructure gateway into layered architecture with security hardening and schema migrations
 - [ ] **Phase 2: Worker Resilience** - Add graceful shutdown, structured logging, smart error handling, and granular progress tracking
 - [ ] **Phase 3: Frontend Hardening** - Polish UI, add progress feedback, error states, retry capability, and React Query
 - [ ] **Phase 4: CI/CD and Deployment** - Automated testing, GitHub Actions pipeline, production Docker config, and cloud VM deployment
@@ -32,9 +32,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Core restructure: layered architecture, golang-migrate migrations, zap logging, worker SQLAlchemy removal
-- [ ] 01-02-PLAN.md — Security hardening: CORS restriction, rate limiting, file size enforcement, JWT validation, input sanitization
-- [ ] 01-03-PLAN.md — Health check endpoint and S3 cleanup on document deletion
+- [x] 01-01-PLAN.md — Core restructure: layered architecture, golang-migrate migrations, zap logging, worker SQLAlchemy removal
+- [x] 01-02-PLAN.md — Security hardening: CORS restriction, rate limiting, file size enforcement, JWT validation, input sanitization
+- [x] 01-03-PLAN.md — Health check endpoint and S3 cleanup on document deletion
 
 ### Phase 2: Worker Resilience
 **Goal**: Worker handles failures gracefully -- shuts down cleanly on SIGTERM, reconnects after network drops, classifies LLM errors, and reports granular translation progress
@@ -90,7 +90,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Gateway Foundation | 0/3 | Planning complete | - |
+| 1. Gateway Foundation | 3/3 | Complete | 2026-03-16 |
 | 2. Worker Resilience | 0/0 | Not started | - |
 | 3. Frontend Hardening | 0/0 | Not started | - |
 | 4. CI/CD and Deployment | 0/0 | Not started | - |

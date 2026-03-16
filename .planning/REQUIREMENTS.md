@@ -18,8 +18,8 @@
 - [x] **GW-01**: Gateway restructured into handler/service/repository layers with dependency injection
 - [x] **GW-02**: Database schema managed via versioned migration tool (golang-migrate), replacing inline DDL
 - [x] **GW-03**: Gateway uses structured logging (zap) instead of fmt/log Printf
-- [ ] **GW-04**: Gateway exposes health check endpoint reporting DB, Redis, and S3 connectivity
-- [ ] **GW-05**: Document deletion also removes associated S3 objects
+- [x] **GW-04**: Gateway exposes health check endpoint reporting DB, Redis, and S3 connectivity
+- [x] **GW-05**: Document deletion also removes associated S3 objects
 
 ### Worker Resilience
 
@@ -97,8 +97,8 @@
 | GW-01 | Phase 1 | Complete |
 | GW-02 | Phase 1 | Complete |
 | GW-03 | Phase 1 | Complete |
-| GW-04 | Phase 1 | Pending |
-| GW-05 | Phase 1 | Pending |
+| GW-04 | Phase 1 | Complete |
+| GW-05 | Phase 1 | Complete |
 | WRK-01 | Phase 2 | Pending |
 | WRK-02 | Phase 2 | Pending |
 | WRK-03 | Phase 2 | Pending |
