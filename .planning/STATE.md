@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-16T19:03:51.809Z"
-last_activity: 2026-03-16 -- Plan 02-02 complete (infrastructure resilience)
+status: completed
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-03-16T19:19:37.839Z"
+last_activity: 2026-03-16 -- Plan 02-04 complete (pipeline optimization)
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -25,17 +25,17 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 2 of 4 (Worker Resilience)
-Plan: 3 of 4 in current phase
-Status: Plan 02-03 complete
-Last activity: 2026-03-16 -- Plan 02-03 complete (error classification and progress)
+Phase: 2 of 4 (Worker Resilience) -- COMPLETE
+Plan: 4 of 4 in current phase
+Status: Phase 02 complete
+Last activity: 2026-03-16 -- Plan 02-04 complete (pipeline optimization)
 
-Progress: [████████░░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 4min
 - Total execution time: 0.4 hours
 
@@ -44,7 +44,7 @@ Progress: [████████░░] 86%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-gateway-foundation | 3/3 | 13min | 4min |
-| 02-worker-resilience | 3/4 | 12min | 4min |
+| 02-worker-resilience | 4/4 | 15min | 4min |
 
 **Recent Trend:**
 - Last 5 plans: 5min, 5min, 3min, 3min, 6min
@@ -55,6 +55,7 @@ Progress: [████████░░] 86%
 | Phase 02 P01 | 3min | 2 tasks | 14 files |
 | Phase 02 P02 | 3min | 3 tasks | 7 files |
 | Phase 02 P03 | 6min | 3 tasks | 7 files |
+| Phase 02 P04 | 3min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [02-03]: Incomplete LLM responses raise LLMTransientError (retryable) instead of generic Exception
 - [02-03]: Gemini SAFETY and RECITATION finish_reasons both map to LLMContentPolicyError
 - [02-03]: Smart retry predicate: retry_if_exception_type((LLMRateLimitError, LLMTransientError)) replaces blanket Exception
+- [Phase 02]: Two-call LLM pattern: classify genre (20 tokens) then genre-specific extraction (4096 tokens)
+- [Phase 02]: OCR detection on first page only; Tesseract with CJK packs for translation use case
+- [Phase 02]: Paragraph boundary chunking at 60% capacity threshold with sentence-ending punctuation heuristic
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:11:30Z
-Stopped at: Completed 02-03-PLAN.md
-Resume file: .planning/phases/02-worker-resilience/02-03-SUMMARY.md
+Last session: 2026-03-16T19:19:37.836Z
+Stopped at: Completed 02-04-PLAN.md
+Resume file: .planning/phases/02-worker-resilience/02-04-SUMMARY.md
