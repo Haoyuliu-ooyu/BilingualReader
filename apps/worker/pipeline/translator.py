@@ -1,9 +1,15 @@
 import json
+import uuid
+
+import structlog
 from pydantic import BaseModel, Field, ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sqlalchemy.orm import Session
+
+from errors import LLMAuthError, LLMRateLimitError, LLMContentPolicyError, LLMTransientError
 from .models import SourceSegment, Translation, ProjectMetadata
-import uuid
+
+log = structlog.get_logger("worker.translator")
 
 # Define expected output structure
 class TranslatedSegment(BaseModel):
@@ -14,15 +20,17 @@ class TranslationOutput(BaseModel):
     items: list[TranslatedSegment]
 
 class TranslationAgent:
-    def __init__(self, db_session: Session, llm_client=None):
+    def __init__(self, db_session: Session, llm_client=None, shutdown_event=None, progress_callback=None):
         self.db = db_session
         self.llm_client = llm_client
+        self.shutdown_event = shutdown_event
+        self.progress_callback = progress_callback
 
     @retry(
-        stop=stop_after_attempt(4),
-        wait=wait_exponential(multiplier=1.5, min=2, max=10),
-        retry=retry_if_exception_type(Exception),
-        reraise=True
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception_type((LLMRateLimitError, LLMTransientError)),
+        reraise=True,
     )
     def call_llm(self, chunk_data: list, world_bible: dict, target_lang: str) -> list[dict]:
         if not self.llm_client:
@@ -80,16 +88,20 @@ class TranslationAgent:
             got_ids = {item['seg_id'] for item in results}
             missing = sent_ids - got_ids
             if missing:
-                print(f"LLM returned {len(results)}/{len(chunk_data)} segments (missing {len(missing)})")
-                raise Exception(
-                    f"Incomplete translation: got {len(results)}/{len(chunk_data)} segments"
+                log.warning("translator.incomplete_response",
+                            returned=len(results), expected=len(chunk_data), missing=len(missing))
+                raise LLMTransientError(
+                    f"Incomplete translation: got {len(results)}/{len(chunk_data)} segments",
+                    self.llm_client.config.provider if self.llm_client else "mock",
                 )
 
             return results
         except (json.JSONDecodeError, ValidationError) as e:
-            print(f"LLM Output Error: {e}")
-            print(f"Raw Output: {raw_text[:500]}")
-            raise Exception(f"Failed to parse LLM output: {e}")
+            log.error("translator.parse_error", error=str(e), raw_output=raw_text[:500])
+            raise LLMTransientError(
+                f"Failed to parse LLM output: {e}",
+                self.llm_client.config.provider if self.llm_client else "mock",
+            )
 
     def chunk_segments(self, segments, max_segments=40, max_words=500):
         """Groups segments into chunks with both segment count and word limits.
@@ -159,7 +171,7 @@ class TranslationAgent:
         Translates a document via chunks and saves to DB.
         Uses multiple passes with shrinking chunk sizes to handle partial LLM responses.
         """
-        print(f"Starting translation process for Doc {doc_id} to {target_lang}")
+        log.info("translator.starting", doc_id=doc_id, target_lang=target_lang)
 
         # 1. Fetch World Bible
         metadata = self.db.query(ProjectMetadata).filter(ProjectMetadata.doc_id == doc_id).first()
@@ -180,25 +192,47 @@ class TranslationAgent:
                 break
 
             max_seg, max_w = chunk_sizes[min(pass_num, len(chunk_sizes) - 1)]
-            print(f"Pass {pass_num + 1}: {len(untranslated)} untranslated of {total} total "
-                  f"(chunk limit: {max_seg} segs, {max_w} words)")
+            log.info("translator.pass_starting", pass_num=pass_num + 1,
+                     untranslated=len(untranslated), total=total,
+                     max_segments=max_seg, max_words=max_w)
 
             chunks = self.chunk_segments(untranslated, max_segments=max_seg, max_words=max_w)
 
             for idx, chunk in enumerate(chunks):
-                print(f"  Chunk {idx+1}/{len(chunks)} ({len(chunk)} segments)...")
+                # Check shutdown between chunks
+                if self.shutdown_event and self.shutdown_event.is_set():
+                    translated_so_far = total - len(self._get_untranslated(segments, target_lang))
+                    log.info("translator.shutdown_requested", job_id=doc_id,
+                             translated=translated_so_far, total=total)
+                    raise InterruptedError("Shutdown requested during translation")
+
+                log.info("translator.chunk_starting", chunk=idx + 1,
+                         total_chunks=len(chunks), segments=len(chunk))
                 try:
                     translated_data = self.call_llm(chunk, world_bible, target_lang)
                     saved = self._save_translations(translated_data, target_lang)
-                    print(f"  Saved {saved} translations.")
+                    log.info("translator.chunk_complete", chunk=idx + 1,
+                             total_chunks=len(chunks), saved=saved)
+
+                    # Report progress after each successful chunk
+                    if self.progress_callback:
+                        translated_so_far = total - len(self._get_untranslated(segments, target_lang))
+                        self.progress_callback(translated_so_far, total)
+
+                except LLMContentPolicyError as e:
+                    log.warning("translator.chunk_blocked", chunk=idx + 1, error=str(e),
+                                blocked_segments=[s["seg_id"] for s in chunk])
+                    # Skip this chunk -- segments remain untranslated, marked as blocked
+                    continue
+                except LLMAuthError:
+                    raise  # Fatal -- propagate up immediately
                 except Exception as e:
-                    # call_llm exhausted all retries — try to salvage partial JSON
-                    print(f"  Chunk failed after retries: {e}")
+                    log.error("translator.chunk_failed", chunk=idx + 1, error=str(e))
 
         # Final check
         remaining = self._get_untranslated(segments, target_lang)
         if remaining:
-            print(f"WARNING: {len(remaining)} segments still untranslated after {max_passes} passes.")
+            log.warning("translator.incomplete", remaining=len(remaining), total=total, passes=max_passes)
             raise Exception(f"Translation incomplete: {len(remaining)}/{total} segments untranslated")
 
-        print("Translation complete.")
+        log.info("translator.complete", doc_id=doc_id)

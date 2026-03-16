@@ -1,10 +1,16 @@
 import json
+
+import structlog
 from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sqlalchemy.orm import Session
 from .models import ProjectMetadata
 
 from typing import Union, List
+
+from errors import LLMRateLimitError, LLMTransientError
+
+log = structlog.get_logger("worker.context_agent")
 
 # Define the expected JSON output structure using Pydantic
 class WorldBible(BaseModel):
@@ -18,10 +24,10 @@ class ContextAgent:
         self.llm_client = llm_client
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type(Exception),
-        reraise=True
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception_type((LLMRateLimitError, LLMTransientError)),
+        reraise=True,
     )
     def call_llm(self, text: str) -> str:
         if not self.llm_client:
@@ -49,17 +55,17 @@ class ContextAgent:
 
     def generate_world_bible(self, txt_path: str, doc_id: str) -> dict:
         """
-        Reads the full text, calls Gemini to get the World Bible, 
+        Reads the full text, calls Gemini to get the World Bible,
         validates it with Pydantic, and saves to DB.
         """
         with open(txt_path, "r", encoding="utf-8") as f:
             full_text = f.read()
 
         provider = self.llm_client.config.provider if self.llm_client else "mock"
-        print(f"Generating World Bible for {doc_id} using {provider}...")
-        
+        log.info("context_agent.generating", doc_id=doc_id, provider=provider)
+
         raw_json_str = self.call_llm(full_text)
-        
+
         # Try to parse and validate
         try:
             # Sometimes LLMs wrap in markdown anyway
@@ -67,11 +73,11 @@ class ContextAgent:
                 raw_json_str = raw_json_str[7:]
             if raw_json_str.endswith("```"):
                 raw_json_str = raw_json_str[:-3]
-                
+
             parsed_data = json.loads(raw_json_str)
             validated_data = WorldBible(**parsed_data).model_dump()
         except Exception as e:
-            print(f"Failed to parse or validate LLM output: {e}\nRaw JSON: {raw_json_str}")
+            log.error("context_agent.parse_error", error=str(e), raw_json=raw_json_str[:500])
             raise
 
         # Save to DB
@@ -81,6 +87,6 @@ class ContextAgent:
         )
         self.db.add(metadata)
         self.db.commit()
-        
-        print("World Bible generated and saved.")
+
+        log.info("context_agent.complete", doc_id=doc_id)
         return validated_data

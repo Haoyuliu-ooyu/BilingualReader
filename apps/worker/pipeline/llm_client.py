@@ -7,9 +7,15 @@ so the worker uses the user's chosen configuration rather than hardcoded env var
 import json
 from dataclasses import dataclass
 
+import structlog
 import openai
 from google import genai
+from google.genai.errors import APIError as GeminiAPIError
 import anthropic
+
+from errors import LLMAuthError, LLMRateLimitError, LLMContentPolicyError, LLMTransientError
+
+log = structlog.get_logger("worker.llm")
 
 
 @dataclass
@@ -67,8 +73,27 @@ class LLMClient:
         )
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-        resp = self.openai.chat.completions.create(**kwargs)
-        return resp.choices[0].message.content.strip()
+        try:
+            resp = self.openai.chat.completions.create(**kwargs)
+            return resp.choices[0].message.content.strip()
+        except openai.AuthenticationError as e:
+            log.warning("llm.auth_error", provider="openai", error=str(e))
+            raise LLMAuthError("Invalid API key", "openai", e)
+        except openai.PermissionDeniedError as e:
+            log.warning("llm.auth_error", provider="openai", error=str(e))
+            raise LLMAuthError("Permission denied", "openai", e)
+        except openai.RateLimitError as e:
+            log.warning("llm.rate_limit", provider="openai", error=str(e))
+            raise LLMRateLimitError("Rate limit exceeded", "openai", e)
+        except openai.BadRequestError as e:
+            if "content_policy" in str(e).lower() or "safety" in str(e).lower():
+                log.warning("llm.content_policy", provider="openai", error=str(e))
+                raise LLMContentPolicyError("Content blocked by policy", "openai", e)
+            log.warning("llm.transient_error", provider="openai", error=str(e))
+            raise LLMTransientError(str(e), "openai", e)
+        except (openai.APIConnectionError, openai.InternalServerError) as e:
+            log.warning("llm.transient_error", provider="openai", error=str(e))
+            raise LLMTransientError(str(e), "openai", e)
 
     def _call_gemini(self, system: str, user: str, max_tokens: int, temperature: float, json_mode: bool) -> str:
         from google.genai import types
@@ -81,32 +106,78 @@ class LLMClient:
         if json_mode:
             config_kwargs["response_mime_type"] = "application/json"
 
-        resp = self.gemini.models.generate_content(
-            model=self.config.model,
-            contents=user,
-            config=types.GenerateContentConfig(**config_kwargs),
-        )
-
-        # Log finish reason for debugging truncation issues
-        finish_reason = None
-        if resp.candidates:
-            finish_reason = resp.candidates[0].finish_reason
-        print(f"[Gemini] max_output_tokens={max_tokens}, finish_reason={finish_reason}")
-
-        if finish_reason and str(finish_reason) == "MAX_TOKENS":
-            raise Exception(
-                f"Gemini output truncated (hit {max_tokens} token limit). "
-                "Increase max_tokens or reduce chunk size."
+        try:
+            resp = self.gemini.models.generate_content(
+                model=self.config.model,
+                contents=user,
+                config=types.GenerateContentConfig(**config_kwargs),
             )
 
-        return resp.text.strip()
+            # Check finish reason for safety/content blocks
+            finish_reason = None
+            if resp.candidates:
+                finish_reason = resp.candidates[0].finish_reason
+            log.debug("llm.gemini_response", max_output_tokens=max_tokens, finish_reason=str(finish_reason))
+
+            if finish_reason and str(finish_reason) in ("SAFETY", "RECITATION"):
+                log.warning("llm.content_policy", provider="gemini", finish_reason=str(finish_reason))
+                raise LLMContentPolicyError(
+                    f"Content blocked: finish_reason={finish_reason}", "gemini", None)
+
+            if finish_reason and str(finish_reason) == "MAX_TOKENS":
+                log.warning("llm.transient_error", provider="gemini", error="output_truncated")
+                raise LLMTransientError(
+                    f"Output truncated (hit {max_tokens} token limit)", "gemini", None)
+
+            return resp.text.strip()
+        except LLMContentPolicyError:
+            raise  # re-raise already-classified errors
+        except LLMTransientError:
+            raise  # re-raise already-classified errors
+        except GeminiAPIError as e:
+            if e.code in (401, 403):
+                log.warning("llm.auth_error", provider="gemini", error=str(e))
+                raise LLMAuthError("Invalid API key", "gemini", e)
+            elif e.code == 429:
+                log.warning("llm.rate_limit", provider="gemini", error=str(e))
+                raise LLMRateLimitError("Rate limit exceeded", "gemini", e)
+            elif e.code >= 500:
+                log.warning("llm.transient_error", provider="gemini", error=str(e))
+                raise LLMTransientError(str(e), "gemini", e)
+            elif e.code == 400:
+                if "safety" in str(e).lower() or "content" in str(e).lower():
+                    log.warning("llm.content_policy", provider="gemini", error=str(e))
+                    raise LLMContentPolicyError("Content blocked", "gemini", e)
+                log.warning("llm.transient_error", provider="gemini", error=str(e))
+                raise LLMTransientError(str(e), "gemini", e)
+            log.warning("llm.transient_error", provider="gemini", error=str(e))
+            raise LLMTransientError(str(e), "gemini", e)
 
     def _call_claude(self, system: str, user: str, max_tokens: int, temperature: float) -> str:
-        resp = self.anthropic.messages.create(
-            model=self.config.model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return resp.content[0].text.strip()
+        try:
+            resp = self.anthropic.messages.create(
+                model=self.config.model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+            return resp.content[0].text.strip()
+        except anthropic.AuthenticationError as e:
+            log.warning("llm.auth_error", provider="claude", error=str(e))
+            raise LLMAuthError("Invalid API key", "claude", e)
+        except anthropic.PermissionDeniedError as e:
+            log.warning("llm.auth_error", provider="claude", error=str(e))
+            raise LLMAuthError("Permission denied", "claude", e)
+        except anthropic.RateLimitError as e:
+            log.warning("llm.rate_limit", provider="claude", error=str(e))
+            raise LLMRateLimitError("Rate limit exceeded", "claude", e)
+        except anthropic.BadRequestError as e:
+            if "content" in str(e).lower() and ("policy" in str(e).lower() or "safety" in str(e).lower()):
+                log.warning("llm.content_policy", provider="claude", error=str(e))
+                raise LLMContentPolicyError("Content blocked by policy", "claude", e)
+            log.warning("llm.transient_error", provider="claude", error=str(e))
+            raise LLMTransientError(str(e), "claude", e)
+        except (anthropic.APIConnectionError, anthropic.InternalServerError) as e:
+            log.warning("llm.transient_error", provider="claude", error=str(e))
+            raise LLMTransientError(str(e), "claude", e)
