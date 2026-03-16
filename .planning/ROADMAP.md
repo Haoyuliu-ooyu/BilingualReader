@@ -29,11 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Uploading an oversized PDF returns a clear file-size error; malformed inputs are rejected before reaching business logic
   4. Gateway code is organized into handler/service/repository layers; health check endpoint reports status of DB, Redis, and S3
   5. Deleting a document removes its S3 objects; structured logs (JSON via zap) replace all fmt/log Printf calls
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Core restructure: layered architecture, golang-migrate migrations, zap logging, worker SQLAlchemy removal
+- [ ] 01-02-PLAN.md — Security hardening: CORS restriction, rate limiting, file size enforcement, JWT validation, input sanitization
+- [ ] 01-03-PLAN.md — Health check endpoint and S3 cleanup on document deletion
 
 ### Phase 2: Worker Resilience
 **Goal**: Worker handles failures gracefully -- shuts down cleanly on SIGTERM, reconnects after network drops, classifies LLM errors, and reports granular translation progress
@@ -89,7 +90,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Gateway Foundation | 0/0 | Not started | - |
+| 1. Gateway Foundation | 0/3 | Planning complete | - |
 | 2. Worker Resilience | 0/0 | Not started | - |
 | 3. Frontend Hardening | 0/0 | Not started | - |
 | 4. CI/CD and Deployment | 0/0 | Not started | - |
