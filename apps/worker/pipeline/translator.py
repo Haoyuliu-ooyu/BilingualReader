@@ -104,18 +104,20 @@ class TranslationAgent:
             )
 
     def chunk_segments(self, segments, max_segments=40, max_words=500):
-        """Groups segments into chunks with both segment count and word limits.
+        """Groups segments into chunks respecting paragraph boundaries.
 
-        Each segment adds ~80-120 tokens of JSON overhead (seg_id, keys, braces)
-        on top of the translated text itself, so we cap both dimensions to keep
-        the LLM output well within token limits.
+        Tries to keep segments from the same page together and avoids splitting
+        mid-paragraph. Uses a heuristic: segments ending with period, question mark,
+        or exclamation mark are treated as paragraph boundaries.
         """
         chunks = []
         current_chunk = []
         current_words = 0
 
-        for seg in segments:
+        for i, seg in enumerate(segments):
             word_count = len(seg.original_text.split())
+
+            # Check if adding this segment would exceed limits
             if current_chunk and (
                 len(current_chunk) >= max_segments or
                 current_words + word_count > max_words
@@ -129,6 +131,24 @@ class TranslationAgent:
                 "original_text": seg.original_text
             })
             current_words += word_count
+
+            # Try to break at paragraph boundaries when chunk is getting full
+            # (past 60% of limits) and segment ends with sentence-ending punctuation
+            is_near_limit = (
+                len(current_chunk) >= max_segments * 0.6 or
+                current_words >= max_words * 0.6
+            )
+            ends_paragraph = seg.original_text.rstrip().endswith(('.', '!', '?', '"', '\u201d'))
+            is_page_boundary = (
+                i + 1 < len(segments) and
+                hasattr(seg, 'page_id') and hasattr(segments[i + 1], 'page_id') and
+                seg.page_id != segments[i + 1].page_id
+            )
+
+            if current_chunk and is_near_limit and (ends_paragraph or is_page_boundary):
+                chunks.append(current_chunk)
+                current_chunk = []
+                current_words = 0
 
         if current_chunk:
             chunks.append(current_chunk)
