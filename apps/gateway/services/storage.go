@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"go.uber.org/zap"
 )
 
 type StorageService struct {
@@ -17,7 +18,7 @@ type StorageService struct {
 	Bucket string
 }
 
-func NewStorageService(ctx context.Context) (*StorageService, error) {
+func NewStorageService(ctx context.Context, logger *zap.Logger) (*StorageService, error) {
 	endpoint := os.Getenv("S3_ENDPOINT")
 	region := os.Getenv("S3_REGION")
 	bucket := os.Getenv("S3_BUCKET")
@@ -46,12 +47,12 @@ func NewStorageService(ctx context.Context) (*StorageService, error) {
 	// Ensure bucket exists
 	_, err = client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)})
 	if err != nil {
-		fmt.Printf("Bucket %s not found, creating...\n", bucket)
+		logger.Info("bucket not found, creating", zap.String("bucket", bucket))
 		_, err = client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create bucket %s: %v", bucket, err)
 		}
-		fmt.Printf("Bucket %s created successfully.\n", bucket)
+		logger.Info("bucket created", zap.String("bucket", bucket))
 	}
 
 	return &StorageService{

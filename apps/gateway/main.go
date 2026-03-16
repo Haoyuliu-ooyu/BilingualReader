@@ -63,7 +63,7 @@ func main() {
 	}
 
 	// Initialize infrastructure services
-	storageService, err := services.NewStorageService(ctx)
+	storageService, err := services.NewStorageService(ctx, logger)
 	if err != nil {
 		logger.Warn("failed to connect to storage", zap.Error(err))
 	}
