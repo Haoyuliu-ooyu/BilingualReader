@@ -3,11 +3,81 @@ package handlers
 import (
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 
 	"gateway/services"
 )
+
+// IPRateLimiter tracks per-IP rate limiters with automatic cleanup of stale entries.
+type IPRateLimiter struct {
+	mu       sync.RWMutex
+	limiters map[string]*visitorEntry
+	rate     rate.Limit
+	burst    int
+}
+
+type visitorEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+// NewIPRateLimiter creates a rate limiter that allows the given rate and burst per IP.
+func NewIPRateLimiter(r rate.Limit, burst int) *IPRateLimiter {
+	rl := &IPRateLimiter{
+		limiters: make(map[string]*visitorEntry),
+		rate:     r,
+		burst:    burst,
+	}
+	go rl.cleanup()
+	return rl
+}
+
+// Allow checks whether the given IP is within its rate limit.
+func (rl *IPRateLimiter) Allow(ip string) bool {
+	rl.mu.Lock()
+	v, exists := rl.limiters[ip]
+	if !exists {
+		v = &visitorEntry{
+			limiter:  rate.NewLimiter(rl.rate, rl.burst),
+			lastSeen: time.Now(),
+		}
+		rl.limiters[ip] = v
+	}
+	v.lastSeen = time.Now()
+	rl.mu.Unlock()
+	return v.limiter.Allow()
+}
+
+// cleanup periodically removes IP entries not seen for over 5 minutes.
+func (rl *IPRateLimiter) cleanup() {
+	for {
+		time.Sleep(3 * time.Minute)
+		rl.mu.Lock()
+		for ip, v := range rl.limiters {
+			if time.Since(v.lastSeen) > 5*time.Minute {
+				delete(rl.limiters, ip)
+			}
+		}
+		rl.mu.Unlock()
+	}
+}
+
+// RateLimitMiddleware returns a Gin middleware that rejects requests exceeding the rate limit.
+func RateLimitMiddleware(rl *IPRateLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		if !rl.Allow(ip) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests,
+				gin.H{"error": "Too many requests. Please try again later."})
+			return
+		}
+		c.Next()
+	}
+}
 
 // AuthRequired is a Gin middleware that validates the JWT from the
 // Authorization header and injects userID + email into the context.

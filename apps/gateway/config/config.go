@@ -56,6 +56,11 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("ALLOWED_ORIGINS must be set (comma-separated list of allowed origins)")
 	}
 
+	// Validate JWT secret minimum length
+	if len(cfg.JWTSecret) < 32 {
+		return nil, fmt.Errorf("JWT_SECRET must be at least 32 characters (got %d)", len(cfg.JWTSecret))
+	}
+
 	return cfg, nil
 }
 
