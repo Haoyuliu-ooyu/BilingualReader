@@ -15,9 +15,9 @@
 
 ### Gateway Architecture
 
-- [ ] **GW-01**: Gateway restructured into handler/service/repository layers with dependency injection
-- [ ] **GW-02**: Database schema managed via versioned migration tool (golang-migrate), replacing inline DDL
-- [ ] **GW-03**: Gateway uses structured logging (zap) instead of fmt/log Printf
+- [x] **GW-01**: Gateway restructured into handler/service/repository layers with dependency injection
+- [x] **GW-02**: Database schema managed via versioned migration tool (golang-migrate), replacing inline DDL
+- [x] **GW-03**: Gateway uses structured logging (zap) instead of fmt/log Printf
 - [ ] **GW-04**: Gateway exposes health check endpoint reporting DB, Redis, and S3 connectivity
 - [ ] **GW-05**: Document deletion also removes associated S3 objects
 
@@ -94,9 +94,9 @@
 | SEC-03 | Phase 1 | Pending |
 | SEC-04 | Phase 1 | Pending |
 | SEC-05 | Phase 1 | Pending |
-| GW-01 | Phase 1 | Pending |
-| GW-02 | Phase 1 | Pending |
-| GW-03 | Phase 1 | Pending |
+| GW-01 | Phase 1 | Complete |
+| GW-02 | Phase 1 | Complete |
+| GW-03 | Phase 1 | Complete |
 | GW-04 | Phase 1 | Pending |
 | GW-05 | Phase 1 | Pending |
 | WRK-01 | Phase 2 | Pending |
