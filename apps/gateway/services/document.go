@@ -79,23 +79,36 @@ func (s *documentService) GetPDFStream(ctx context.Context, docID, userID string
 }
 
 func (s *documentService) Delete(ctx context.Context, docID, userID string) error {
+	// Verify ownership and get S3 key
 	s3Key, err := s.docRepo.GetS3Key(ctx, docID, userID)
 	if err != nil {
-		return fmt.Errorf("document not found")
+		return fmt.Errorf("document not found: %w", err)
 	}
 
-	// Attempt S3 deletion; log warning on failure but proceed
-	_, s3Err := s.storage.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(s.storage.Bucket),
-		Key:    aws.String(s3Key),
-	})
-	if s3Err != nil {
-		s.logger.Warn("failed to delete S3 object, proceeding with DB deletion",
-			zap.String("s3_key", s3Key),
-			zap.Error(s3Err),
-		)
+	// Attempt S3 cleanup (best effort -- orphaned object is acceptable)
+	if s3Key != "" {
+		_, err = s.storage.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: aws.String(s.storage.Bucket),
+			Key:    aws.String(s3Key),
+		})
+		if err != nil {
+			s.logger.Warn("failed to delete S3 object, orphaned object may remain",
+				zap.String("s3_key", s3Key),
+				zap.String("doc_id", docID),
+				zap.Error(err),
+			)
+			// Continue with DB deletion per design decision
+		}
 	}
 
-	// Cascade handles children (pages -> segments -> translations)
-	return s.docRepo.Delete(ctx, docID)
+	// Delete from DB (CASCADE handles child tables: pages -> segments -> translations)
+	if err := s.docRepo.Delete(ctx, docID); err != nil {
+		return fmt.Errorf("failed to delete document from database: %w", err)
+	}
+
+	s.logger.Info("document deleted",
+		zap.String("doc_id", docID),
+		zap.String("user_id", userID),
+	)
+	return nil
 }
