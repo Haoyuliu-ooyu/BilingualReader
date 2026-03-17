@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export interface Block {
     id: string
     original_text: string
-    translated_text: string
+    translated_text?: string
     bbox: number[] // [x0, y0, x1, y1]
     terms?: { term: string; definition: string }[]
 }

@@ -1,27 +1,29 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { DropZone } from '@/components/DropZone'
 import { useSettingsStore, PROVIDER_META, type LLMProvider } from '@/store/useSettingsStore'
 import { useModels } from '@/hooks/useModels'
 import { AlertTriangle, Loader2 } from 'lucide-react'
-import { apiFetch } from '@/lib/api'
+import { queryKeys, fetchSavedKeys } from '@/lib/queries'
+import { useUploadDocument } from '@/lib/mutations'
 
-export default function FileUpload({ onSuccess }: { onSuccess?: () => void }) {
+export default function FileUpload() {
     const [file, setFile] = useState<File | null>(null)
-    const [uploading, setUploading] = useState(false)
     const [targetLang, setTargetLang] = useState('ES')
     const [selectedProvider, setSelectedProvider] = useState<LLMProvider | ''>('')
     const [selectedModel, setSelectedModel] = useState('')
-    const navigate = useNavigate()
+    const [uploadError, setUploadError] = useState<string | null>(null)
 
-    const { savedKeys, fetchSavedKeys } = useSettingsStore()
+    const { data: keysData } = useQuery({
+        queryKey: queryKeys.llmKeys.list(),
+        queryFn: fetchSavedKeys,
+    })
+    const configuredProviders = keysData?.keys?.map((k) => k.provider) ?? []
 
-    useEffect(() => {
-        fetchSavedKeys()
-    }, [fetchSavedKeys])
-
-    const configuredProviders = savedKeys.map((k) => k.provider)
+    const uploadMutation = useUploadDocument()
 
     // Auto-select if only one provider is configured
     const activeProvider = selectedProvider || (configuredProviders.length === 1 ? configuredProviders[0] : '')
@@ -33,70 +35,42 @@ export default function FileUpload({ onSuccess }: { onSuccess?: () => void }) {
     const hasApiKeys = configuredProviders.length > 0
     const canUpload = file && activeProvider && selectedModel && hasApiKeys
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0])
-        }
-    }
-
     const handleProviderChange = (provider: string) => {
         setSelectedProvider(provider as LLMProvider)
         setSelectedModel('') // reset model when provider changes
     }
 
     const handleUpload = async () => {
-        if (!canUpload) return
-
-        setUploading(true)
-        const formData = new FormData()
-        formData.append('target_lang', targetLang)
-        formData.append('file', file)
-        formData.append('llm_provider', activeProvider)
-        formData.append('llm_model', selectedModel)
-
+        if (!canUpload || !file) return
+        setUploadError(null)
         try {
-            const res = await apiFetch(`/api/upload?target_lang=${encodeURIComponent(targetLang)}`, {
-                method: 'POST',
-                body: formData,
+            await uploadMutation.mutateAsync({
+                file,
+                targetLang,
+                llmProvider: activeProvider,
+                llmModel: selectedModel,
             })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}))
-                throw new Error(data.error || 'Upload failed')
-            }
-
-            const data = await res.json()
-
-            if (onSuccess) {
-                onSuccess()
-                setFile(null)
-            } else {
-                navigate(`/reader/${data.job_id}`)
-            }
+            setFile(null)
         } catch (error: unknown) {
             console.error(error)
-            alert(error instanceof Error ? error.message : "Upload failed. Make sure the Gateway is running on port 8080.")
-        } finally {
-            setUploading(false)
+            setUploadError(error instanceof Error ? error.message : 'Upload failed. Make sure the Gateway is running on port 8080.')
         }
     }
 
     return (
-        <Card className="w-full max-w-md mx-auto rounded-2xl border-slate-200/60 shadow-sm">
+        <Card className="w-full max-w-md mx-auto rounded-2xl border-border shadow-sm">
             <CardHeader>
                 <CardTitle>Upload Document</CardTitle>
                 <CardDescription>Select a PDF to translate and read.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {/* File input */}
-                <div className="grid w-full max-w-sm items-center gap-1.5">
-                    <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={handleFileChange}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                </div>
+                {/* Drop zone */}
+                <DropZone onFileSelect={(f) => setFile(f)} accept=".pdf" />
+                {file && (
+                    <p className="text-sm text-muted-foreground truncate">
+                        Selected: {file.name}
+                    </p>
+                )}
 
                 {/* Target language */}
                 <div className="grid w-full max-w-sm items-center gap-1.5">
@@ -174,12 +148,16 @@ export default function FileUpload({ onSuccess }: { onSuccess?: () => void }) {
                     </>
                 )}
 
+                {uploadError && (
+                    <p className="text-sm text-red-500">{uploadError}</p>
+                )}
+
                 <Button
                     onClick={handleUpload}
-                    disabled={!canUpload || uploading}
+                    disabled={!canUpload || uploadMutation.isPending}
                     className="w-full"
                 >
-                    {uploading ? 'Uploading...' : 'Start Reading'}
+                    {uploadMutation.isPending ? 'Uploading...' : 'Start Reading'}
                 </Button>
             </CardContent>
         </Card>
