@@ -1,6 +1,9 @@
 package repository
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+)
 
 // DocumentMeta holds summary info for a document listing.
 type DocumentMeta struct {
@@ -10,7 +13,11 @@ type DocumentMeta struct {
 	Status       string `json:"status"`
 	LLMProvider  string `json:"llm_provider,omitempty"`
 	LLMModel     string `json:"llm_model,omitempty"`
-	CreatedAt    string `json:"created_at"`
+	CreatedAt       string          `json:"created_at"`
+	PipelinePhase   string          `json:"pipeline_phase,omitempty"`
+	TranslatedCount int             `json:"translated_count"`
+	TotalCount      int             `json:"total_count"`
+	ErrorDetail     json.RawMessage `json:"error_detail,omitempty"`
 }
 
 // SavedKeyInfo holds non-secret metadata about a stored LLM key.
@@ -48,6 +55,8 @@ type DocumentRepository interface {
 	Create(ctx context.Context, id, userID, originalName, targetLang, s3Key, status, llmProvider, llmModel string) error
 	Delete(ctx context.Context, docID string) error
 	GetS3Key(ctx context.Context, docID, userID string) (string, error)
+	GetDocumentForRetry(ctx context.Context, docID, userID string) (doc DocumentMeta, s3Key string, err error)
+	ResetForRetry(ctx context.Context, docID string) error
 }
 
 // LLMKeyRepository defines data access for the user_llm_keys table.
