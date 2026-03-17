@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"go.uber.org/zap"
 
+	"gateway/models"
 	"gateway/repository"
 )
 
@@ -18,13 +20,16 @@ type DocumentService interface {
 	GetTree(ctx context.Context, docID, userID string) ([]repository.Page, error)
 	GetPDFStream(ctx context.Context, docID, userID string) (io.ReadCloser, int64, error)
 	Delete(ctx context.Context, docID, userID string) error
+	Retry(ctx context.Context, docID, userID string) error
 }
 
 type documentService struct {
-	docRepo  repository.DocumentRepository
-	pageRepo repository.PageRepository
-	storage  *StorageService
-	logger   *zap.Logger
+	docRepo    repository.DocumentRepository
+	pageRepo   repository.PageRepository
+	storage    *StorageService
+	llmKeyRepo repository.LLMKeyRepository
+	queue      *QueueService
+	logger     *zap.Logger
 }
 
 // NewDocumentService creates a new DocumentService.
@@ -32,13 +37,17 @@ func NewDocumentService(
 	docRepo repository.DocumentRepository,
 	pageRepo repository.PageRepository,
 	storage *StorageService,
+	llmKeyRepo repository.LLMKeyRepository,
+	queue *QueueService,
 	logger *zap.Logger,
 ) DocumentService {
 	return &documentService{
-		docRepo:  docRepo,
-		pageRepo: pageRepo,
-		storage:  storage,
-		logger:   logger,
+		docRepo:    docRepo,
+		pageRepo:   pageRepo,
+		storage:    storage,
+		llmKeyRepo: llmKeyRepo,
+		queue:      queue,
+		logger:     logger,
 	}
 }
 
@@ -107,6 +116,55 @@ func (s *documentService) Delete(ctx context.Context, docID, userID string) erro
 	}
 
 	s.logger.Info("document deleted",
+		zap.String("doc_id", docID),
+		zap.String("user_id", userID),
+	)
+	return nil
+}
+
+func (s *documentService) Retry(ctx context.Context, docID, userID string) error {
+	// Fetch document details and verify ownership
+	doc, s3Key, err := s.docRepo.GetDocumentForRetry(ctx, docID, userID)
+	if err != nil {
+		return fmt.Errorf("document not found")
+	}
+
+	// Verify document is in FAILED state
+	if doc.Status != "FAILED" {
+		return fmt.Errorf("only failed documents can be retried")
+	}
+
+	// Get encrypted key for the document's provider
+	encryptedKey, err := s.llmKeyRepo.GetEncryptedKey(ctx, userID, doc.LLMProvider)
+	if err != nil {
+		return fmt.Errorf("no API key found for provider %s", doc.LLMProvider)
+	}
+
+	// Reset document status
+	if err := s.docRepo.ResetForRetry(ctx, docID); err != nil {
+		return fmt.Errorf("failed to reset document: %w", err)
+	}
+
+	// Push job to Redis queue
+	payload := models.JobPayload{
+		JobID:        docID,
+		UserID:       userID,
+		S3Key:        s3Key,
+		OriginalName: doc.OriginalName,
+		TargetLang:   doc.TargetLang,
+		LLMProvider:  doc.LLMProvider,
+		LLMApiKey:    encryptedKey,
+		LLMModel:     doc.LLMModel,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job payload: %w", err)
+	}
+	if err := s.queue.PushTask(ctx, "tasks:process_pdf", payloadBytes); err != nil {
+		return fmt.Errorf("failed to queue retry job: %w", err)
+	}
+
+	s.logger.Info("document retry queued",
 		zap.String("doc_id", docID),
 		zap.String("user_id", userID),
 	)

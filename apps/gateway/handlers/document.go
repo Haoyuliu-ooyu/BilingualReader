@@ -72,6 +72,30 @@ func (h *DocumentHandler) GetDocumentPDF(c *gin.Context) {
 	})
 }
 
+// RetryDocument re-queues a failed document for processing.
+func (h *DocumentHandler) RetryDocument(c *gin.Context) {
+	docID := c.Param("id")
+	userID := c.GetString("userID")
+
+	err := h.docService.Retry(c.Request.Context(), docID, userID)
+	if err != nil {
+		h.logger.Warn("failed to retry document", zap.String("doc_id", docID), zap.Error(err))
+		msg := err.Error()
+		if msg == "document not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": msg})
+			return
+		}
+		if msg == "only failed documents can be retried" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retry document"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Document retry queued"})
+}
+
 // DeleteDocument removes a document and its S3 object.
 func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	docID := c.Param("id")

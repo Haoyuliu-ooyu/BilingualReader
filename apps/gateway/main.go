@@ -82,7 +82,7 @@ func main() {
 
 	// Initialize services
 	authSvc := services.NewAuthService(userRepo, cfg.JWTSecret)
-	docSvc := services.NewDocumentService(docRepo, pageRepo, storageService, logger)
+	docSvc := services.NewDocumentService(docRepo, pageRepo, storageService, llmKeyRepo, queueService, logger)
 	uploadSvc := services.NewUploadService(docRepo, llmKeyRepo, storageService, queueService, logger)
 
 	// Initialize health repository (needs direct access to infrastructure clients)

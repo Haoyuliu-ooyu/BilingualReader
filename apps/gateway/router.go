@@ -69,6 +69,7 @@ func SetupRouter(
 			protected.GET("/documents/:id", docHandler.GetDocumentTree)
 			protected.GET("/documents/:id/pdf", docHandler.GetDocumentPDF)
 			protected.DELETE("/documents/:id", docHandler.DeleteDocument)
+			protected.POST("/documents/:id/retry", docHandler.RetryDocument)
 			protected.GET("/llm-keys", llmKeysHandler.HandleListKeys)
 			protected.POST("/llm-keys", llmKeysHandler.HandleSaveKey)
 			protected.DELETE("/llm-keys/:provider", llmKeysHandler.HandleDeleteKey)
