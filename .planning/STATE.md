@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-17T00:04:51.272Z"
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-17T04:08:12.056Z"
 last_activity: 2026-03-17 -- Plan 03-01 complete (gateway progress & retry API)
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 11
   percent: 82
 ---
 
@@ -58,6 +58,8 @@ Progress: [████████░░] 82%
 | Phase 02 P04 | 3min | 2 tasks | 5 files |
 | Phase 03 P01 | 2min | 2 tasks | 6 files |
 | Phase 03 P02 | 2min | 2 tasks | 11 files |
+| Phase 03 P03 | 4min | 2 tasks | 7 files |
+| Phase 03 P04 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -94,6 +96,12 @@ Recent decisions affecting current work:
 - [Phase 03-02]: React Query staleTime 2s, gcTime 5min, retry 1 as sensible defaults
 - [Phase 03-02]: Optimistic delete with rollback on error for instant UI feedback
 - [Phase 03-02]: Query key factory pattern: queryKeys.domain.scope() for cache invalidation
+- [Phase 03-04]: ThemeToggle cycles light->dark->system (3-state toggle)
+- [Phase 03-04]: useSettingsStore stripped to draftKeys only; savedKeys fully managed by React Query
+- [Phase 03-04]: Reader PDF query uses staleTime Infinity and gcTime 0 for blob URL lifecycle
+- [Phase 03-03]: DocumentCard renders error banner inline with retry/details toggle, not as toast
+- [Phase 03-03]: Library page keeps PDF thumbnail layout with DocumentCard nested below thumbnail
+- [Phase 03-03]: FileUpload uses React Query for saved keys instead of Zustand fetchSavedKeys
 
 ### Pending Todos
 
@@ -106,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:04:41.458Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-17T04:08:12.053Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None

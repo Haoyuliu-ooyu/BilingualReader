@@ -38,11 +38,11 @@
 
 ### Frontend
 
-- [ ] **FE-01**: Frontend layout is polished with proper spacing, alignment, and visual refinement
+- [x] **FE-01**: Frontend layout is polished with proper spacing, alignment, and visual refinement
 - [x] **FE-02**: Frontend has error boundaries with informative error states
 - [x] **FE-03**: Frontend uses React Query for server state management, replacing manual polling
 - [x] **FE-04**: Frontend displays translation progress from worker (percentage/segments)
-- [ ] **FE-05**: Frontend provides retry button for failed documents
+- [x] **FE-05**: Frontend provides retry button for failed documents
 
 ### Deployment
 
@@ -108,11 +108,11 @@
 | TUX-01 | Phase 3 | Complete |
 | TUX-02 | Phase 3 | Complete |
 | TUX-03 | Phase 3 | Complete |
-| FE-01 | Phase 3 | Pending |
+| FE-01 | Phase 3 | Complete |
 | FE-02 | Phase 3 | Complete |
 | FE-03 | Phase 3 | Complete |
 | FE-04 | Phase 3 | Complete |
-| FE-05 | Phase 3 | Pending |
+| FE-05 | Phase 3 | Complete |
 | DEP-01 | Phase 4 | Pending |
 | DEP-02 | Phase 4 | Pending |
 | DEP-03 | Phase 4 | Pending |
