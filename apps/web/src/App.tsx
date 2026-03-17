@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { Sidebar } from '@/components/Sidebar'
+import { Sidebar, MobileMenuButton } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Home from '@/pages/Home'
 import Library from '@/pages/Library'
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 
 export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated())
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   // Login page renders without sidebar
   if (!isAuthenticated) {
@@ -22,9 +24,10 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50/50">
-      <Sidebar />
-      <main className="flex-1 overflow-auto bg-slate-50/30">
+    <div className="flex h-screen bg-muted/30">
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <MobileMenuButton onClick={() => setMobileOpen(true)} />
+      <main className="flex-1 overflow-auto bg-muted/20">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />

@@ -1,46 +1,52 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Library, Settings, BookOpen, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { Home, Library, Settings, BookOpen, PanelLeftClose, PanelLeftOpen, LogOut, Menu, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/useAuthStore";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
-export function Sidebar() {
+const navItems = [
+    { name: "Home", href: "/", icon: Home },
+    { name: "Library", href: "/library", icon: Library },
+    { name: "Settings", href: "/settings", icon: Settings },
+];
+
+export function MobileMenuButton({ onClick }: { onClick: () => void }) {
+    return (
+        <button
+            onClick={onClick}
+            className="md:hidden fixed top-4 left-4 z-30 p-2 bg-card border border-border rounded-lg shadow-sm"
+            aria-label="Open menu"
+        >
+            <Menu className="h-5 w-5" />
+        </button>
+    );
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const user = useAuthStore((s) => s.user);
     const logout = useAuthStore((s) => s.logout);
 
-    const navItems = [
-        { name: "Home", href: "/", icon: Home },
-        { name: "Library", href: "/library", icon: Library },
-        { name: "Settings", href: "/settings", icon: Settings },
-    ];
-
     const handleLogout = () => {
         logout();
         navigate("/login");
     };
 
-    return (
-        <div
-            className={`flex flex-col bg-card/60 backdrop-blur-md text-card-foreground h-screen shrink-0 transition-all duration-300 shadow-[2px_0_12px_-4px_rgba(0,0,0,0.05)] border-r border-slate-200/50 relative ${isCollapsed ? "w-16" : "w-64"
-                }`}
-        >
-            {/* Toggle Button */}
-            <Button
-                variant="outline"
-                size="icon"
-                className="absolute -right-4 top-5 z-20 rounded-full w-8 h-8 shadow-sm hover:shadow-md border-slate-200/60 bg-background hidden md:flex transition-all hover:scale-105"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-            >
-                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
+    const handleNavClick = () => {
+        // Close mobile drawer on navigation
+        onMobileClose();
+    };
 
+    const sidebarContent = (collapsed: boolean) => (
+        <>
             {/* Logo Area */}
-            <div className={`h-16 flex items-center border-b border-slate-200/50 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+            <div className={`h-16 flex items-center border-b border-border ${collapsed ? 'justify-center' : 'px-6'}`}>
                 <BookOpen className="w-6 h-6 text-primary shrink-0" />
-                {!isCollapsed && (
+                {!collapsed && (
                     <span className="ml-3 font-semibold text-lg truncate flex-1">Project Prism</span>
                 )}
             </div>
@@ -53,19 +59,21 @@ export function Sidebar() {
                         <Link
                             key={item.name}
                             to={item.href}
+                            onClick={handleNavClick}
                             className={`flex items-center px-3 py-3 rounded-xl transition-all duration-200 group relative ${isActive
-                                    ? "bg-primary/10 text-primary font-medium"
-                                    : "hover:bg-primary/5 hover:text-primary"
-                                } ${isCollapsed ? 'justify-center' : 'justify-start'}`}
-                            title={isCollapsed ? item.name : undefined}
+                                ? "bg-primary/10 text-primary font-medium"
+                                : "hover:bg-primary/5 hover:text-primary"
+                                } ${collapsed ? 'justify-center' : 'justify-start'}`}
+                            aria-label={collapsed ? item.name : undefined}
+                            title={collapsed ? item.name : undefined}
                         >
                             <item.icon className="w-5 h-5 shrink-0" />
-                            {!isCollapsed && (
+                            {!collapsed && (
                                 <span className="ml-4 font-medium truncate">{item.name}</span>
                             )}
 
                             {/* Tooltip for collapsed state */}
-                            {isCollapsed && (
+                            {collapsed && (
                                 <div className="absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded-md text-sm hidden group-hover:block z-50 border shadow-sm whitespace-nowrap">
                                     {item.name}
                                 </div>
@@ -76,18 +84,22 @@ export function Sidebar() {
             </div>
 
             {/* User area at the bottom */}
-            <div className={`border-t border-slate-200/50 p-4 ${isCollapsed ? 'flex justify-center' : ''}`}>
-                {isCollapsed ? (
-                    <button
-                        onClick={handleLogout}
-                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors group relative"
-                        title="Logout"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        <div className="absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded-md text-sm hidden group-hover:block z-50 border shadow-sm whitespace-nowrap">
-                            Logout
-                        </div>
-                    </button>
+            <div className={`border-t border-border p-4 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
+                {collapsed ? (
+                    <>
+                        <ThemeToggle />
+                        <button
+                            onClick={handleLogout}
+                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors group relative"
+                            aria-label="Log out"
+                            title="Log out"
+                        >
+                            <LogOut className="w-5 h-5" />
+                            <div className="absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded-md text-sm hidden group-hover:block z-50 border shadow-sm whitespace-nowrap">
+                                Log out
+                            </div>
+                        </button>
+                    </>
                 ) : (
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium shrink-0">
@@ -96,16 +108,75 @@ export function Sidebar() {
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{user?.email ?? 'User'}</p>
                         </div>
+                        <ThemeToggle />
                         <button
                             onClick={handleLogout}
                             className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
-                            title="Logout"
+                            aria-label="Log out"
+                            title="Log out"
                         >
                             <LogOut className="w-4 h-4" />
                         </button>
                     </div>
                 )}
             </div>
-        </div>
+        </>
+    );
+
+    return (
+        <>
+            {/* Desktop sidebar */}
+            <div
+                className={`hidden md:flex flex-col bg-card/60 backdrop-blur-md text-card-foreground h-screen shrink-0 transition-all duration-300 shadow-[2px_0_12px_-4px_rgba(0,0,0,0.05)] border-r border-border relative ${isCollapsed ? "w-16" : "w-64"}`}
+            >
+                {/* Toggle Button */}
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute -right-4 top-5 z-20 rounded-full w-8 h-8 shadow-sm hover:shadow-md border-border bg-background hidden md:flex transition-all hover:scale-105"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                    {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                </Button>
+
+                {sidebarContent(isCollapsed)}
+            </div>
+
+            {/* Mobile drawer */}
+            <AnimatePresence>
+                {mobileOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={onMobileClose}
+                        />
+                        {/* Drawer panel */}
+                        <motion.div
+                            className="fixed left-0 top-0 h-full w-64 z-50 bg-card border-r border-border flex flex-col md:hidden"
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        >
+                            {/* Close button */}
+                            <button
+                                onClick={onMobileClose}
+                                className="absolute top-4 right-4 p-1.5 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                                aria-label="Close menu"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+
+                            {sidebarContent(false)}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </>
     );
 }
