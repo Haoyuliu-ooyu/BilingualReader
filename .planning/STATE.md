@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-16T21:02:53.196Z"
-last_activity: 2026-03-16 -- Plan 02-04 complete (pipeline optimization)
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-17T00:04:44.621Z"
+last_activity: 2026-03-17 -- Plan 03-01 complete (gateway progress & retry API)
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 11
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** The translation output must be accurate, consistent, and complete -- every segment translated with proper glossary/style coherence across the document.
-**Current focus:** Phase 2: Worker Resilience
+**Current focus:** Phase 3: Frontend Hardening
 
 ## Current Position
 
-Phase: 2 of 4 (Worker Resilience) -- COMPLETE
-Plan: 4 of 4 in current phase
-Status: Phase 02 complete
-Last activity: 2026-03-16 -- Plan 02-04 complete (pipeline optimization)
+Phase: 3 of 4 (Frontend Hardening)
+Plan: 1 of 4 in current phase -- COMPLETE
+Status: Plan 03-01 complete
+Last activity: 2026-03-17 -- Plan 03-01 complete (gateway progress & retry API)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ Progress: [██████████] 100%
 | Phase 02 P02 | 3min | 3 tasks | 7 files |
 | Phase 02 P03 | 6min | 3 tasks | 7 files |
 | Phase 02 P04 | 3min | 2 tasks | 5 files |
+| Phase 03 P01 | 2min | 2 tasks | 6 files |
+| Phase 03 P02 | 2min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -87,6 +89,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Two-call LLM pattern: classify genre (20 tokens) then genre-specific extraction (4096 tokens)
 - [Phase 02]: OCR detection on first page only; Tesseract with CJK packs for translation use case
 - [Phase 02]: Paragraph boundary chunking at 60% capacity threshold with sentence-ending punctuation heuristic
+- [03-01]: Retry reuses existing encrypted LLM key from user_llm_keys table rather than requiring re-submission
+- [03-01]: ResetForRetry clears pipeline_phase, error_detail, and resets counts to zero before re-queue
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T21:02:53.193Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-frontend-hardening/03-CONTEXT.md
+Last session: 2026-03-17T00:04:41.458Z
+Stopped at: Completed 03-02-PLAN.md
+Resume file: None

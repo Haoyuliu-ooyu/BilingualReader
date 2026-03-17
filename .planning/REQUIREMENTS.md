@@ -32,9 +32,9 @@
 
 ### Translation UX
 
-- [ ] **TUX-01**: User can retry a failed translation from the frontend without re-uploading
-- [ ] **TUX-02**: User sees granular translation progress (segment count or percentage) during processing
-- [ ] **TUX-03**: User sees specific error reason when translation fails (not generic "FAILED")
+- [x] **TUX-01**: User can retry a failed translation from the frontend without re-uploading
+- [x] **TUX-02**: User sees granular translation progress (segment count or percentage) during processing
+- [x] **TUX-03**: User sees specific error reason when translation fails (not generic "FAILED")
 
 ### Frontend
 
@@ -105,9 +105,9 @@
 | WRK-04 | Phase 2 | Complete |
 | WRK-05 | Phase 2 | Complete |
 | WRK-06 | Phase 2 | Complete |
-| TUX-01 | Phase 3 | Pending |
-| TUX-02 | Phase 3 | Pending |
-| TUX-03 | Phase 3 | Pending |
+| TUX-01 | Phase 3 | Complete |
+| TUX-02 | Phase 3 | Complete |
+| TUX-03 | Phase 3 | Complete |
 | FE-01 | Phase 3 | Pending |
 | FE-02 | Phase 3 | Pending |
 | FE-03 | Phase 3 | Pending |
