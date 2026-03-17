@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: completed
 stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-17T00:04:44.621Z"
+last_updated: "2026-03-17T00:04:51.272Z"
 last_activity: 2026-03-17 -- Plan 03-01 complete (gateway progress & retry API)
 progress:
   total_phases: 4
@@ -91,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Paragraph boundary chunking at 60% capacity threshold with sentence-ending punctuation heuristic
 - [03-01]: Retry reuses existing encrypted LLM key from user_llm_keys table rather than requiring re-submission
 - [03-01]: ResetForRetry clears pipeline_phase, error_detail, and resets counts to zero before re-queue
+- [Phase 03-02]: React Query staleTime 2s, gcTime 5min, retry 1 as sensible defaults
+- [Phase 03-02]: Optimistic delete with rollback on error for instant UI feedback
+- [Phase 03-02]: Query key factory pattern: queryKeys.domain.scope() for cache invalidation
 
 ### Pending Todos
 
