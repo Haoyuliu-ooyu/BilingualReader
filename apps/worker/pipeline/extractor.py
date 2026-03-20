@@ -14,6 +14,8 @@ class PDFExtractor:
 
     def clean_text(self, text: str) -> str:
         """Removes hyphenation artifacts and cleans up whitespace."""
+        # Remove null bytes (PostgreSQL cannot store \x00 in string literals)
+        text = text.replace('\x00', '')
         # Replace hyphen followed by newline with nothing (joins broken words)
         text = re.sub(r'-\n\s*', '', text)
         # Replace remaining single newlines with a space
@@ -63,25 +65,20 @@ class PDFExtractor:
             if not text_blocks:
                 log.info("extractor.no_text_detected", job_id=job_id, attempting="ocr")
                 try:
-                    ocr_text = first_page.get_text("text", ocr=True)
+                    tp = first_page.get_textpage_ocr(full=True)
+                    ocr_text = first_page.get_text("text", textpage=tp)
                     if ocr_text and ocr_text.strip():
                         use_ocr = True
                         log.info("extractor.ocr_enabled", job_id=job_id)
                     else:
                         log.error("extractor.ocr_failed", job_id=job_id,
                                   reason="OCR returned no text")
-                        raise Exception(
-                            "Could not extract text - PDF may be image-only or corrupted. "
-                            "OCR was attempted but returned no readable text."
-                        )
+                        raise Exception("EXTRACTION_FAILED")
                 except Exception as e:
-                    if "Could not extract text" in str(e):
+                    if str(e) == "EXTRACTION_FAILED":
                         raise
                     log.error("extractor.ocr_unavailable", job_id=job_id, error=str(e))
-                    raise Exception(
-                        "Could not extract text - PDF may be image-only or corrupted. "
-                        "OCR is not available (Tesseract may not be installed)."
-                    )
+                    raise Exception("EXTRACTION_FAILED")
 
         # Iterate pages
         for page_num in range(len(doc)):
@@ -100,7 +97,8 @@ class PDFExtractor:
 
             if use_ocr:
                 # OCR mode: get full text per page
-                page_text = page.get_text("text", ocr=True)
+                tp = page.get_textpage_ocr(full=True)
+                page_text = page.get_text("text", textpage=tp)
                 # Split into paragraphs as pseudo-blocks
                 paragraphs = [p.strip() for p in page_text.split("\n\n") if p.strip()]
                 for block_idx, para in enumerate(paragraphs):

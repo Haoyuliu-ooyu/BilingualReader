@@ -44,9 +44,9 @@ export default function PDFViewer({ url }: PDFViewerProps) {
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-100">
+        <div className="flex flex-col h-full bg-muted/50">
             {/* Sticky Navigation Header */}
-            <div className="flex items-center justify-between p-3 bg-white border-b shadow-sm z-10 shrink-0">
+            <div className="flex items-center justify-between p-3 bg-card border-b border-border shadow-sm z-10 shrink-0">
                 <div className="flex items-center gap-2">
                     <Button
                         variant="outline"
@@ -64,9 +64,9 @@ export default function PDFViewer({ url }: PDFViewerProps) {
                             max={numPages || 1}
                             value={currentPage}
                             onChange={handlePageChange}
-                            className="w-16 h-8 text-center border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                            className="w-16 h-8 text-center border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-background"
                         />
-                        <span className="text-sm font-medium text-gray-500">of {numPages}</span>
+                        <span className="text-sm font-medium text-muted-foreground">of {numPages}</span>
                     </div>
                 </div>
                 <div className="flex items-center">
@@ -86,7 +86,7 @@ export default function PDFViewer({ url }: PDFViewerProps) {
                 <Document
                     file={url}
                     onLoadSuccess={onDocumentLoadSuccess}
-                    className="border shadow-lg bg-white"
+                    className="border border-border shadow-lg bg-card"
                 >
                     <div className="relative">
                         <Page

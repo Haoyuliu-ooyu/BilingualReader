@@ -139,8 +139,26 @@ func (r *documentRepo) GetDocumentForRetry(ctx context.Context, docID, userID st
 }
 
 func (r *documentRepo) ResetForRetry(ctx context.Context, docID string) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Delete child rows from previous attempt (CASCADE handles segments/translations via pages)
+	if _, err := tx.Exec(ctx, `DELETE FROM project_metadata WHERE doc_id = $1`, docID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM pages WHERE doc_id = $1`, docID); err != nil {
+		return err
+	}
+
+	// Reset document status for fresh processing
+	if _, err := tx.Exec(ctx,
 		`UPDATE documents SET status = 'PENDING', pipeline_phase = NULL, translated_count = 0, total_count = 0, error_detail = NULL WHERE id = $1`, docID,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

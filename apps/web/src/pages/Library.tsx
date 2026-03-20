@@ -1,13 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Library } from 'lucide-react'
-import PDFThumbnail from '@/components/PDFThumbnail'
+import { motion, AnimatePresence } from 'framer-motion'
 import { DocumentCard } from '@/components/DocumentCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { queryKeys, fetchDocuments, shouldPollDocuments } from '@/lib/queries'
 import { useDeleteDocument, useRetryDocument } from '@/lib/mutations'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 export default function LibraryPage() {
   const { data: documents = [], isLoading, isError, refetch } = useQuery({
@@ -63,32 +61,27 @@ export default function LibraryPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {documents.map((doc) => (
-              <div key={doc.id} className="group relative flex flex-col">
-                {/* PDF Thumbnail */}
-                <div className="rounded-2xl overflow-hidden border border-border bg-card shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group-hover:border-primary/30 mb-4 aspect-3/4 flex items-center justify-center relative">
-                  {doc.status === 'COMPLETED' ? (
-                    <Link to={`/reader/${doc.id}`} className="w-full h-full block">
-                      <PDFThumbnail url={`${API_URL}/api/documents/${doc.id}/pdf`} />
-                    </Link>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 p-4 text-center">
-                      <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                      <span className="text-sm text-muted-foreground capitalize">{doc.status.toLowerCase()}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Document Info via DocumentCard-style layout */}
-                <DocumentCard
-                  document={doc}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                  onRetry={(id) => retryMutation.mutate(id)}
-                />
-              </div>
-            ))}
-          </div>
+          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            <AnimatePresence mode="popLayout">
+              {documents.map((doc) => (
+                <motion.div 
+                  layout
+                  key={doc.id}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }} 
+                  animate={{ opacity: 1, y: 0, scale: 1 }} 
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                >
+                  <DocumentCard
+                    document={doc}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                    onRetry={(id) => retryMutation.mutate(id)}
+                    showThumbnail={true}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </div>
     </div>

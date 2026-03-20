@@ -2,6 +2,7 @@ import json
 import uuid
 
 import structlog
+from json_repair import repair_json
 from pydantic import BaseModel, Field, ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sqlalchemy.orm import Session
@@ -58,10 +59,10 @@ class TranslationAgent:
         source_words = sum(len(item['original_text'].split()) for item in chunk_data)
         cjk_prefixes = ('ZH', 'JA', 'KO')
         is_cjk = target_lang.upper().startswith(cjk_prefixes)
-        tokens_per_word = 8 if is_cjk else 3
+        tokens_per_word = 10 if is_cjk else 4
         content_tokens = source_words * tokens_per_word
         json_overhead = len(chunk_data) * 80  # seg_id, keys, braces per item
-        estimated_tokens = content_tokens + json_overhead + 256
+        estimated_tokens = int((content_tokens + json_overhead) * 1.5) + 512
         max_tokens = max(8192, estimated_tokens)
 
         raw_text = self.llm_client.generate(
@@ -79,7 +80,18 @@ class TranslationAgent:
             raw_text = raw_text[:-3]
 
         try:
-            parsed = json.loads(raw_text)
+            try:
+                parsed = json.loads(raw_text)
+            except json.JSONDecodeError:
+                # LLM often produces unescaped quotes in CJK text (e.g. "文明")
+                # or truncated JSON; attempt repair before giving up
+                repaired = repair_json(raw_text, return_objects=True)
+                if isinstance(repaired, dict):
+                    parsed = repaired
+                    log.warning("translator.json_repaired", raw_len=len(raw_text))
+                else:
+                    raise  # re-raise original JSONDecodeError
+
             validated = TranslationOutput(**parsed)
             results = [item.model_dump() for item in validated.items]
 

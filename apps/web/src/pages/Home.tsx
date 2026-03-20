@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { FileText } from 'lucide-react'
 import FileUpload from '@/components/FileUpload'
@@ -33,7 +34,7 @@ export default function Home() {
       <div className="flex flex-col items-center gap-12 w-full max-w-5xl">
 
         {/* Upload Section */}
-        <div className="w-full bg-card border border-border rounded-2xl p-8 shadow-sm">
+        <div className="w-full relative z-10">
           <FileUpload />
         </div>
 
@@ -72,16 +73,26 @@ export default function Home() {
               <p className="text-muted-foreground text-sm">Upload a PDF above to start translating.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {documents.slice(0, 3).map((doc) => (
-                <DocumentCard
-                  key={doc.id}
-                  document={doc}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                  onRetry={(id) => retryMutation.mutate(id)}
-                />
-              ))}
-            </div>
+            <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatePresence mode="popLayout">
+                {documents.slice(0, 3).map((doc) => (
+                  <motion.div 
+                    layout
+                    key={doc.id} 
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }} 
+                    animate={{ opacity: 1, y: 0, scale: 1 }} 
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                  >
+                    <DocumentCard
+                      document={doc}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onRetry={(id) => retryMutation.mutate(id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           )}
         </div>
       </div>

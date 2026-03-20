@@ -50,7 +50,7 @@ def main():
     log.info("worker.starting")
 
     # Initialize Services
-    try:
+    try: 
         db = DBService(Config.DB_URL)
         queue = QueueService(Config.REDIS_ADDR)
     except Exception as e:
@@ -142,8 +142,16 @@ def process_task(db, queue, task, shutdown_event):
         log.error("job.rate_limited", job_id=job_id, provider=e.provider)
 
     except Exception as e:
-        db.update_error(job_id, "PIPELINE_ERROR", str(e)[:500])
-        log.error("job.failed", job_id=job_id, error=str(e))
+        error_msg = str(e)
+        error_code = "EXTRACTION_FAILED" if error_msg == "EXTRACTION_FAILED" else "PIPELINE_ERROR"
+        # Sanitize error message: log the full error for debugging but store
+        # a safe, user-facing message in the DB (no raw SQL/traceback details)
+        if error_code == "EXTRACTION_FAILED":
+            safe_msg = "Could not extract text from this PDF."
+        else:
+            safe_msg = "An internal error occurred during processing."
+        db.update_error(job_id, error_code, safe_msg)
+        log.error("job.failed", job_id=job_id, error=error_msg)
 
 
 if __name__ == "__main__":

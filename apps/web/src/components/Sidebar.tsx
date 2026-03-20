@@ -37,22 +37,31 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
     };
 
     const handleNavClick = () => {
-        // Close mobile drawer on navigation
         onMobileClose();
     };
 
     const sidebarContent = (collapsed: boolean) => (
-        <>
+        <div className="flex flex-col h-full overflow-hidden">
             {/* Logo Area */}
-            <div className={`h-16 flex items-center border-b border-border ${collapsed ? 'justify-center' : 'px-6'}`}>
+            <div className={`h-16 flex items-center border-b border-border ${collapsed ? 'justify-center px-2' : 'px-6'}`}>
                 <BookOpen className="w-6 h-6 text-primary shrink-0" />
-                {!collapsed && (
-                    <span className="ml-3 font-semibold text-lg truncate flex-1">Project Prism</span>
-                )}
+                <AnimatePresence mode="wait">
+                    {!collapsed && (
+                        <motion.span
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0, width: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="ml-3 font-semibold text-lg whitespace-nowrap overflow-hidden"
+                        >
+                            Project Prism
+                        </motion.span>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Navigation Links */}
-            <div className="flex-1 py-6 flex flex-col gap-2 px-3 overflow-y-auto">
+            <div className="flex-1 py-4 flex flex-col gap-1 px-3 overflow-y-auto">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                     return (
@@ -60,17 +69,27 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
                             key={item.name}
                             to={item.href}
                             onClick={handleNavClick}
-                            className={`flex items-center px-3 py-3 rounded-xl transition-all duration-200 group relative ${isActive
+                            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${isActive
                                 ? "bg-primary/10 text-primary font-medium"
-                                : "hover:bg-primary/5 hover:text-primary"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                 } ${collapsed ? 'justify-center' : 'justify-start'}`}
                             aria-label={collapsed ? item.name : undefined}
                             title={collapsed ? item.name : undefined}
                         >
                             <item.icon className="w-5 h-5 shrink-0" />
-                            {!collapsed && (
-                                <span className="ml-4 font-medium truncate">{item.name}</span>
-                            )}
+                            <AnimatePresence mode="wait">
+                                {!collapsed && (
+                                    <motion.span
+                                        initial={{ opacity: 0, width: 0 }}
+                                        animate={{ opacity: 1, width: "auto" }}
+                                        exit={{ opacity: 0, width: 0 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="ml-3 font-medium whitespace-nowrap overflow-hidden"
+                                    >
+                                        {item.name}
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
 
                             {/* Tooltip for collapsed state */}
                             {collapsed && (
@@ -84,7 +103,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
             </div>
 
             {/* User area at the bottom */}
-            <div className={`border-t border-border p-4 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
+            <div className={`border-t border-border p-3 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
                 {collapsed ? (
                     <>
                         <ThemeToggle />
@@ -120,16 +139,18 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
                     </div>
                 )}
             </div>
-        </>
+        </div>
     );
 
     return (
         <>
-            {/* Desktop sidebar */}
-            <div
-                className={`hidden md:flex flex-col bg-card/60 backdrop-blur-md text-card-foreground h-screen shrink-0 transition-all duration-300 shadow-[2px_0_12px_-4px_rgba(0,0,0,0.05)] border-r border-border relative ${isCollapsed ? "w-16" : "w-64"}`}
+            {/* Desktop sidebar — overflow-visible so the toggle button can protrude, z-50 to paint above main */}
+            <motion.div
+                className="hidden md:flex flex-col bg-card/60 backdrop-blur-md text-card-foreground h-screen shrink-0 shadow-[2px_0_12px_-4px_rgba(0,0,0,0.05)] border-r border-border relative z-50"
+                animate={{ width: isCollapsed ? 64 : 256 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-                {/* Toggle Button */}
+                {/* Floating toggle button — protrudes outside sidebar */}
                 <Button
                     variant="outline"
                     size="icon"
@@ -141,7 +162,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
                 </Button>
 
                 {sidebarContent(isCollapsed)}
-            </div>
+            </motion.div>
 
             {/* Mobile drawer */}
             <AnimatePresence>

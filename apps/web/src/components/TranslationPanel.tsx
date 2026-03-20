@@ -16,9 +16,9 @@ export default function TranslationPanel() {
     }, [currentPage])
 
     return (
-        <div ref={scrollContainerRef} className="h-full overflow-y-auto p-4 space-y-4 bg-slate-50/50 border-l border-slate-200/50">
+        <div ref={scrollContainerRef} className="h-full overflow-y-auto p-4 space-y-4 bg-muted/30 border-l border-border">
             {blocks.length === 0 ? (
-                <p className="text-gray-500 text-center mt-10">No translation data for this page.</p>
+                <p className="text-muted-foreground text-center mt-10">No translation data for this page.</p>
             ) : (
                 blocks.map((block) => (
                     <Card
@@ -26,13 +26,13 @@ export default function TranslationPanel() {
                         onClick={() => setHighlightedBlock(block.id)}
                         className={`cursor-pointer transition-all duration-300 border rounded-xl shadow-sm ${highlightedBlock === block.id
                             ? 'bg-primary/5 border-primary/40 shadow-md scale-[1.01]'
-                            : 'bg-white border-slate-200/60 hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5'
+                            : 'bg-card border-border hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5'
                             }`}
                     >
                         <CardContent className="p-4">
-                            <p className="text-sm text-gray-500 mb-2 font-serif">{block.original_text}</p>
-                            <div className="border-t pt-2">
-                                <p className="text-gray-900 font-medium">{block.translated_text}</p>
+                            <p className="text-sm text-muted-foreground mb-2 font-serif">{block.original_text}</p>
+                            <div className="border-t border-border pt-2">
+                                <p className="text-foreground font-medium">{block.translated_text}</p>
                             </div>
                             {block.terms && block.terms.length > 0 && (
                                 <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">

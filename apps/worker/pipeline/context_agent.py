@@ -131,7 +131,7 @@ class ContextAgent:
         raw = self.llm_client.generate(
             system_prompt=system_prompt,
             user_message=f"Classify this text:\n{sample}",
-            max_tokens=20,
+            max_tokens=500,
             temperature=0.1,
             json_mode=False,
         )
@@ -203,12 +203,17 @@ class ContextAgent:
             log.error("context_agent.parse_error", error=str(e), raw_json=raw_json_str[:500])
             raise
 
-        # Save to DB
-        metadata = ProjectMetadata(
-            doc_id=doc_id,
-            world_bible_json=validated_data
-        )
-        self.db.add(metadata)
+        # Save to DB (upsert to handle retries gracefully)
+        existing = self.db.query(ProjectMetadata).filter_by(doc_id=doc_id).first()
+        if existing:
+            existing.world_bible_json = validated_data
+            log.info("context_agent.upsert", doc_id=doc_id, action="updated_existing")
+        else:
+            metadata = ProjectMetadata(
+                doc_id=doc_id,
+                world_bible_json=validated_data
+            )
+            self.db.add(metadata)
         self.db.commit()
 
         log.info("context_agent.complete", doc_id=doc_id, genre=genre,

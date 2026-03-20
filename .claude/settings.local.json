@@ -1,9 +1,34 @@
 {
   "permissions": {
     "allow": [
+      "Bash(date:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(sort:*)",
+      "Bash(grep:*)",
+      "Bash(tr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git tag:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
       "Bash(cd:*)",
-      "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(go:*)",
+      "Bash(test:*)",
+      "Write",
+      "Edit",
+      "Read(//Users/haoyuliu/.gsd/**)",
+      "WebSearch",
+      "Skill(gsd:ui-phase)"
     ]
   }
 }

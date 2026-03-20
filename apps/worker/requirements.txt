@@ -11,5 +11,6 @@ tenacity
 SQLAlchemy
 cryptography
 structlog
+json-repair
 pytest
 pytest-timeout

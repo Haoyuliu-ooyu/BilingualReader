@@ -50,7 +50,7 @@ export default function PDFThumbnail({ url }: PDFThumbnailProps) {
     }
 
     return (
-        <div className="w-full h-full overflow-hidden flex items-center justify-center bg-white dark:bg-slate-900">
+        <div className="w-full h-full overflow-hidden flex items-center justify-center bg-card">
             <Document
                 file={blobUrl}
                 onLoadError={() => setLoadError(true)}

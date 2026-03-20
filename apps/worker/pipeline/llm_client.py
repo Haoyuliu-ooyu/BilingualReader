@@ -75,7 +75,19 @@ class LLMClient:
             kwargs["response_format"] = {"type": "json_object"}
         try:
             resp = self.openai.chat.completions.create(**kwargs)
-            return resp.choices[0].message.content.strip()
+            finish_reason = resp.choices[0].finish_reason if resp.choices else None
+            log.debug("llm.openai_response", max_tokens=max_tokens, finish_reason=finish_reason)
+
+            if finish_reason == "length":
+                log.warning("llm.transient_error", provider="openai", error="output_truncated",
+                            max_tokens=max_tokens)
+                raise LLMTransientError(
+                    f"Output truncated (hit {max_tokens} token limit)", "openai", None)
+
+            text = resp.choices[0].message.content
+            if text is None:
+                raise LLMTransientError("Empty response from model", "openai", None)
+            return text.strip()
         except openai.AuthenticationError as e:
             log.warning("llm.auth_error", provider="openai", error=str(e))
             raise LLMAuthError("Invalid API key", "openai", e)
@@ -102,6 +114,7 @@ class LLMClient:
             system_instruction=system,
             max_output_tokens=max_tokens,
             temperature=temperature,
+            automatic_function_calling={"disable": True},
         )
         if json_mode:
             config_kwargs["response_mime_type"] = "application/json"
@@ -116,20 +129,27 @@ class LLMClient:
             # Check finish reason for safety/content blocks
             finish_reason = None
             if resp.candidates:
-                finish_reason = resp.candidates[0].finish_reason
-            log.debug("llm.gemini_response", max_output_tokens=max_tokens, finish_reason=str(finish_reason))
+                fr = resp.candidates[0].finish_reason
+                if fr is not None:
+                    finish_reason = fr.name if hasattr(fr, "name") else str(fr)
+            
+            log.debug("llm.gemini_response", max_output_tokens=max_tokens, finish_reason=finish_reason)
 
-            if finish_reason and str(finish_reason) in ("SAFETY", "RECITATION"):
-                log.warning("llm.content_policy", provider="gemini", finish_reason=str(finish_reason))
+            if finish_reason and finish_reason in ("SAFETY", "RECITATION"):
+                log.warning("llm.content_policy", provider="gemini", finish_reason=finish_reason)
                 raise LLMContentPolicyError(
                     f"Content blocked: finish_reason={finish_reason}", "gemini", None)
 
-            if finish_reason and str(finish_reason) == "MAX_TOKENS":
-                log.warning("llm.transient_error", provider="gemini", error="output_truncated")
+            if finish_reason and finish_reason == "MAX_TOKENS":
+                log.warning("llm.transient_error", provider="gemini", error="output_truncated", resp_repr=repr(resp))
                 raise LLMTransientError(
                     f"Output truncated (hit {max_tokens} token limit)", "gemini", None)
 
-            return resp.text.strip()
+            text = resp.text
+            if text is None:
+                log.error("llm.gemini_empty", resp_repr=repr(resp))
+                raise LLMTransientError("Empty response from model", "gemini", None)
+            return text.strip()
         except LLMContentPolicyError:
             raise  # re-raise already-classified errors
         except LLMTransientError:
@@ -162,7 +182,18 @@ class LLMClient:
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )
-            return resp.content[0].text.strip()
+            log.debug("llm.claude_response", max_tokens=max_tokens, stop_reason=resp.stop_reason)
+
+            if resp.stop_reason == "max_tokens":
+                log.warning("llm.transient_error", provider="claude", error="output_truncated",
+                            max_tokens=max_tokens)
+                raise LLMTransientError(
+                    f"Output truncated (hit {max_tokens} token limit)", "claude", None)
+
+            text = resp.content[0].text if resp.content else None
+            if text is None:
+                raise LLMTransientError("Empty response from model", "claude", None)
+            return text.strip()
         except anthropic.AuthenticationError as e:
             log.warning("llm.auth_error", provider="claude", error=str(e))
             raise LLMAuthError("Invalid API key", "claude", e)
