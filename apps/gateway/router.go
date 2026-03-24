@@ -27,6 +27,9 @@ func SetupRouter(
 	logger *zap.Logger,
 ) *gin.Engine {
 	r := gin.New()
+	
+	// Disable trusting all proxies (resolves Gin warning)
+	r.SetTrustedProxies(nil)
 
 	// Structured request logging and panic recovery via zap
 	r.Use(ginzap.Ginzap(logger, time.RFC3339, true))

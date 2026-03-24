@@ -9,7 +9,7 @@ import (
 // Config holds all environment-based configuration for the gateway.
 type Config struct {
 	DBUrl                string
-	RedisAddr            string
+	RedisURL             string
 	S3Endpoint           string
 	S3Region             string
 	S3Bucket             string
@@ -26,7 +26,7 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		DBUrl:                getEnv("DB_URL", "postgres://postgres:prism@localhost:5432/prism?sslmode=disable"),
-		RedisAddr:            getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisURL:            getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		S3Endpoint:           os.Getenv("S3_ENDPOINT"),
 		S3Region:             os.Getenv("S3_REGION"),
 		S3Bucket:             getEnv("S3_BUCKET", "raw-documents"),

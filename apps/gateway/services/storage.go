@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -29,10 +30,16 @@ func NewStorageService(ctx context.Context, logger *zap.Logger) (*StorageService
 		bucket = "raw-documents"
 	}
 
-	cfg, err := config.LoadDefaultConfig(ctx,
+	opts := []func(*config.LoadOptions) error{
 		config.WithRegion(region),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
-	)
+	}
+	// Only use static creds for local Minio — in production, IAM task role handles auth
+	if endpoint != "" {
+		opts = append(opts, config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+		))
+	}
+	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load SDK config, %v", err)
 	}
@@ -44,15 +51,22 @@ func NewStorageService(ctx context.Context, logger *zap.Logger) (*StorageService
 		}
 	})
 
-	// Ensure bucket exists
-	_, err = client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)})
-	if err != nil {
-		logger.Info("bucket not found, creating", zap.String("bucket", bucket))
-		_, err = client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)})
+	// Only auto-create bucket in local dev (Minio)
+	if endpoint != "" {
+		_, err = client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create bucket %s: %v", bucket, err)
+			logger.Info("bucket not found, creating", zap.String("bucket", bucket))
+			_, err = client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)})
+			if err != nil {
+				if strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") || strings.Contains(err.Error(), "BucketAlreadyExists") {
+					logger.Info("bucket already exists", zap.String("bucket", bucket))
+				} else {
+					return nil, fmt.Errorf("failed to create bucket %s: %v", bucket, err)
+				}
+			} else {
+				logger.Info("bucket created", zap.String("bucket", bucket))
+			}
 		}
-		logger.Info("bucket created", zap.String("bucket", bucket))
 	}
 
 	return &StorageService{

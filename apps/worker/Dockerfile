@@ -1,4 +1,7 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -11,10 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-jpn \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements if they exist, otherwise skip
-COPY requirements.txt* ./
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN useradd -m -u 1000 appuser
 
 COPY . .
+RUN chown -R appuser:appuser /app
 
+USER appuser
 CMD ["python", "main.py"]

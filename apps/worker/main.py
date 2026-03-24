@@ -30,12 +30,13 @@ signal.signal(signal.SIGINT, handle_signal)
 
 
 def download_file(s3_key, local_path):
-    s3 = boto3.client('s3',
-        endpoint_url=Config.S3_ENDPOINT,
-        aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-        region_name=Config.S3_REGION
-    )
+    kwargs = {"region_name": Config.S3_REGION}
+    if Config.S3_ENDPOINT:
+        kwargs["endpoint_url"] = Config.S3_ENDPOINT
+        kwargs["aws_access_key_id"] = Config.AWS_ACCESS_KEY_ID
+        kwargs["aws_secret_access_key"] = Config.AWS_SECRET_ACCESS_KEY
+        
+    s3 = boto3.client('s3', **kwargs)
     try:
         s3.download_file(Config.S3_BUCKET, s3_key, local_path)
         return True
@@ -52,7 +53,7 @@ def main():
     # Initialize Services
     try: 
         db = DBService(Config.DB_URL)
-        queue = QueueService(Config.REDIS_ADDR)
+        queue = QueueService(Config.REDIS_URL)
     except Exception as e:
         log.error("worker.init_failed", error=str(e))
         time.sleep(5)

@@ -1,0 +1,132 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (leave empty for all)'
+        required: false
+        type: choice
+        options: ['', web, gateway, worker]
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT: prism
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ─── Detect which services changed ─────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+      worker: ${{ steps.filter.outputs.worker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+            gateway:
+              - 'apps/gateway/**'
+            worker:
+              - 'apps/worker/**'
+
+  # ─── Build & Push Docker Images ────────────────────────
+  build-push:
+    runs-on: ubuntu-latest
+    needs: changes
+    strategy:
+      matrix:
+        service: [web, gateway, worker]
+    # Skip if: push-triggered AND service didn't change AND not manual
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (matrix.service == 'web' && needs.changes.outputs.web == 'true') ||
+      (matrix.service == 'gateway' && needs.changes.outputs.gateway == 'true') ||
+      (matrix.service == 'worker' && needs.changes.outputs.worker == 'true')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          REPO="${ECR_REGISTRY}/${PROJECT}/${SERVICE}"
+          BUILD_ARGS=""
+          if [ "$SERVICE" = "web" ]; then
+            # Bake the API URL into the frontend build
+            ALB_URL="${{ secrets.ALB_URL }}"
+            BUILD_ARGS="--build-arg VITE_API_URL=${ALB_URL}"
+          fi
+
+          docker build ${BUILD_ARGS} \
+            -t "${REPO}:${IMAGE_TAG}" \
+            -t "${REPO}:latest" \
+            "./apps/${SERVICE}/"
+
+          docker push "${REPO}:${IMAGE_TAG}"
+          docker push "${REPO}:latest"
+
+  # ─── Deploy to ECS ─────────────────────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment: prod
+    strategy:
+      matrix:
+        service: [web, gateway, worker]
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS
+        env:
+          ENVIRONMENT: prod
+          SERVICE: ${{ matrix.service }}
+        run: |
+          aws ecs update-service \
+            --cluster "${PROJECT}-${ENVIRONMENT}-cluster" \
+            --service "${PROJECT}-${ENVIRONMENT}-${SERVICE}" \
+            --force-new-deployment \
+            --no-cli-pager
+
+          echo "✅ ${SERVICE} deployment triggered"
+
+      - name: Wait for stable
+        env:
+          ENVIRONMENT: prod
+          SERVICE: ${{ matrix.service }}
+        run: |
+          echo "⏳ Waiting for ${SERVICE} to stabilize..."
+          aws ecs wait services-stable \
+            --cluster "${PROJECT}-${ENVIRONMENT}-cluster" \
+            --services "${PROJECT}-${ENVIRONMENT}-${SERVICE}" \
+            --region "${AWS_REGION}" || echo "⚠️ Timed out waiting for ${SERVICE}"

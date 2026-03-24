@@ -10,20 +10,17 @@ log = structlog.get_logger("worker.queue")
 
 
 class QueueService:
-    def __init__(self, redis_addr):
-        host, port = redis_addr.split(":")
+    def __init__(self, redis_url):
         retry = Retry(ExponentialBackoff(cap=60, base=1), retries=25)
-        self.client = redis.Redis(
-            host=host,
-            port=int(port),
-            db=0,
+        self.client = redis.from_url(
+            redis_url,
             retry=retry,
             retry_on_error=[ConnectionError, TimeoutError],
             socket_timeout=10,
             socket_connect_timeout=5,
             health_check_interval=30,
         )
-        log.info("queue.initialized", host=host, port=port)
+        log.info("queue.initialized", redis_url=redis_url)
 
     def get_task(self, queue_name, timeout=0):
         """Pop a task from the queue using BLPOP."""

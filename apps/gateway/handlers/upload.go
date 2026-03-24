@@ -25,7 +25,7 @@ func isValidFilename(name string) bool {
 
 // allowedLanguages is a BCP-47 language code whitelist.
 var allowedLanguages = map[string]bool{
-	"en": true, "zh": true, "ja": true, "ko": true,
+	"en": true, "zh": true, "zhh": true, "ja": true, "ko": true,
 	"fr": true, "de": true, "es": true, "pt": true,
 	"it": true, "ru": true, "ar": true, "hi": true,
 	"th": true, "vi": true, "nl": true, "pl": true,
@@ -90,7 +90,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	// Validate language code
 	if !isValidLanguageCode(targetLang) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Unsupported language code: %s. Supported: en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, nl, pl, sv, da, fi, no, tr, id, ms, uk.", targetLang)})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Unsupported language code: %s. Supported: en, zh, zhh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, nl, pl, sv, da, fi, no, tr, id, ms, uk.", targetLang)})
 		return
 	}
 

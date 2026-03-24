@@ -64,7 +64,7 @@ class LLMClient:
     def _call_openai(self, system: str, user: str, max_tokens: int, temperature: float, json_mode: bool) -> str:
         kwargs = dict(
             model=self.config.model,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
             temperature=temperature,
             messages=[
                 {"role": "system", "content": system},

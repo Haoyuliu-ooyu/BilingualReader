@@ -13,14 +13,17 @@ type QueueService struct {
 }
 
 func NewQueueService(ctx context.Context) (*QueueService, error) {
-	addr := os.Getenv("REDIS_ADDR")
-	if addr == "" {
-		addr = "localhost:6379"
+	url := os.Getenv("REDIS_URL")
+	if url == "" {
+		url = "redis://localhost:6379/0"
 	}
 
-	client := redis.NewClient(&redis.Options{
-		Addr: addr,
-	})
+	opts, err := redis.ParseURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_URL: %v", err)
+	}
+
+	client := redis.NewClient(opts)
 
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("unable to connect to redis: %v", err)

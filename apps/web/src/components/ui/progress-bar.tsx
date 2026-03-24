@@ -8,8 +8,8 @@ interface ProgressBarProps {
 }
 
 const PHASE_LABELS: Record<string, string> = {
-  extracting: 'Extracting...',
-  generating_context: 'Generating Context...',
+  extracting: 'Thinking...',
+  generating_context: 'Thinking...',
   translating: '', // handled separately with counts
 }
 
@@ -24,7 +24,7 @@ export function ProgressBar({ phase, translatedCount, totalCount, status }: Prog
   if (status === 'INTERRUPTED') {
     label = 'Resuming...'
   } else if (isTranslating) {
-    label = `${translatedCount}/${totalCount} segments \u2014 ${percentage}%`
+    label = `Translating... ${percentage}%`
   } else if (phase && PHASE_LABELS[phase] !== undefined) {
     label = PHASE_LABELS[phase]
   } else {
@@ -32,9 +32,8 @@ export function ProgressBar({ phase, translatedCount, totalCount, status }: Prog
   }
 
   return (
-    <div className="w-full space-y-1">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+    <div className="w-full flex items-center justify-between gap-3 mt-2">
+      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
         {isTranslating ? (
           <motion.div
             className="h-full bg-primary rounded-full"
@@ -46,6 +45,9 @@ export function ProgressBar({ phase, translatedCount, totalCount, status }: Prog
           <div className="h-full bg-primary/50 rounded-full animate-pulse w-full" />
         )}
       </div>
+      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap w-30 text-right">
+        {label}
+      </span>
     </div>
   )
 }

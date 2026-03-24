@@ -20,11 +20,16 @@ services:
       - prism-network
 
   prism-web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: builder
     depends_on:
       - prism-gateway
     volumes:
       - ./apps/web:/app
       - /app/node_modules
+    command: ["npm", "run", "dev", "--", "--host"]
     networks:
       - prism-network
 
