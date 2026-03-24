@@ -1,0 +1,77 @@
+# docker-compose.dev.yml — local development overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev --env-file .env up --build
+version: '3.8'
+
+services:
+  prism-gateway:
+    depends_on:
+      - prism-redis
+      - prism-db
+      - prism-minio
+    networks:
+      - prism-network
+
+  prism-worker:
+    depends_on:
+      - prism-redis
+      - prism-db
+      - prism-minio
+    networks:
+      - prism-network
+
+  prism-web:
+    depends_on:
+      - prism-gateway
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    networks:
+      - prism-network
+
+  prism-redis:
+    image: redis:7-alpine
+    container_name: prism-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - prism-network
+    volumes:
+      - redis_data:/data
+
+  prism-db:
+    image: postgres:15-alpine
+    container_name: prism-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=prism
+      - POSTGRES_DB=prism
+    networks:
+      - prism-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  prism-minio:
+    image: minio/minio
+    container_name: prism-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    networks:
+      - prism-network
+    volumes:
+      - minio_data:/data
+
+networks:
+  prism-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:
+  minio_data:

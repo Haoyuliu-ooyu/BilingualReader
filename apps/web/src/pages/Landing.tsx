@@ -42,7 +42,7 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button asChild size="lg" className="h-14 px-8 text-lg rounded-full group">
-              <Link to="/login">
+              <Link to="/login" className="flex items-center whitespace-nowrap">
                 Get Started for Free
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
@@ -63,7 +63,7 @@ export default function Landing() {
               <Globe className="w-6 h-6 text-blue-500" />
             </div>
             <h3 className="text-xl font-semibold mb-2">Multilingual Support</h3>
-            <p className="text-muted-foreground">Translate documents into over 50+ languages with high contextual accuracy.</p>
+            <p className="text-muted-foreground">Translate documents into your target language with high contextual accuracy.</p>
           </div>
           <div className="flex flex-col items-center text-center p-6 bg-card/50 backdrop-blur-sm border border-border rounded-2xl hover:border-primary/50 transition-colors">
             <div className="p-3 bg-primary/10 rounded-xl mb-4">

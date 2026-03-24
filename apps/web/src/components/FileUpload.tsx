@@ -12,7 +12,7 @@ import { useUploadDocument } from '@/lib/mutations'
 
 export default function FileUpload() {
     const [file, setFile] = useState<File | null>(null)
-    const [targetLang, setTargetLang] = useState('ES')
+    const [targetLang, setTargetLang] = useState('')
     const [selectedProvider, setSelectedProvider] = useState<LLMProvider | ''>('')
     const [selectedModel, setSelectedModel] = useState('')
     const [uploadError, setUploadError] = useState<string | null>(null)
@@ -33,7 +33,7 @@ export default function FileUpload() {
     )
 
     const hasApiKeys = configuredProviders.length > 0
-    const canUpload = file && activeProvider && selectedModel && hasApiKeys
+    const canUpload = file && activeProvider && selectedModel && hasApiKeys && targetLang !== ''
 
     const handleProviderChange = (provider: string) => {
         setSelectedProvider(provider as LLMProvider)
@@ -81,12 +81,18 @@ export default function FileUpload() {
                         onChange={(e) => setTargetLang(e.target.value)}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     >
+                        <option value="" disabled>Select a language</option>
                         <option value="EN">English</option>
                         <option value="ES">Spanish</option>
                         <option value="ZH">Chinese (Simplified)</option>
+                        <option value="ZHH">Chinese (Traditional)</option>
                         <option value="FR">French</option>
                         <option value="DE">German</option>
                         <option value="JA">Japanese</option>
+                        <option value="IT">Italian</option>
+                        <option value="KO">Korean</option>
+                        <option value="PT">Portuguese</option>
+                        <option value="RU">Russian</option>
                     </select>
                 </div>
 

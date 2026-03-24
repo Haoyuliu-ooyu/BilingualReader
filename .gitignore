@@ -39,3 +39,15 @@ apps/web/dist/
 # Claude
 CLAUDE.md
 .claude/
+
+# Terraform
+terraform.tfvars
+infra/.terraform/
+*.tfstate*
+
+# Production env
+.env.prod
+
+
+#Dev notes
+aws-migration-guide.md
