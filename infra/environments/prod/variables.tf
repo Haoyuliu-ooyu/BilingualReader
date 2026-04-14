@@ -33,3 +33,9 @@ variable "allowed_origins" {
   description = "Comma-separated allowed CORS origins"
   default     = "*"
 }
+
+variable "custom_domain" {
+  type        = string
+  description = "Custom domain linked to CloudFront via CNAME (e.g. reader.example.com)"
+  default     = ""
+}

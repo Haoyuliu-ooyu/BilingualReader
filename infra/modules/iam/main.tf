@@ -17,7 +17,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Allow execution role to read secrets from Secrets Manager
 resource "aws_iam_role_policy" "ecs_execution_secrets" {
   name = "${var.project_name}-${var.environment}-execution-secrets"
   role = aws_iam_role.ecs_execution.id
@@ -32,7 +31,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
   })
 }
 
-# --- ECS Task Role (used by app code to access S3, etc.) ---
+# --- ECS Task Role (used by app code to access S3 + SQS) ---
 resource "aws_iam_role" "ecs_task" {
   name = "${var.project_name}-${var.environment}-ecs-task"
 
@@ -65,6 +64,25 @@ resource "aws_iam_role_policy" "ecs_task_s3" {
         var.s3_bucket_arn,
         "${var.s3_bucket_arn}/*"
       ]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "ecs_task_sqs" {
+  name = "${var.project_name}-${var.environment}-task-sqs"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ]
+      Resource = var.sqs_queue_arn
     }]
   })
 }

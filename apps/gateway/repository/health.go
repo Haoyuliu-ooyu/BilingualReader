@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -11,12 +12,12 @@ import (
 
 type healthRepo struct {
 	pool   *pgxpool.Pool
-	redis  *redis.Client
+	redis  *redis.Client // nil when using SQS
 	s3     *s3.Client
 	bucket string
 }
 
-// NewHealthRepository creates a HealthRepository that pings DB, Redis, and S3.
+// NewHealthRepository creates a HealthRepository that pings DB, optionally Redis, and S3.
 func NewHealthRepository(pool *pgxpool.Pool, redisClient *redis.Client, s3Client *s3.Client, bucket string) HealthRepository {
 	return &healthRepo{pool: pool, redis: redisClient, s3: s3Client, bucket: bucket}
 }
@@ -26,6 +27,9 @@ func (r *healthRepo) PingDB(ctx context.Context) error {
 }
 
 func (r *healthRepo) PingRedis(ctx context.Context) error {
+	if r.redis == nil {
+		return errors.New("redis not configured (using SQS)")
+	}
 	return r.redis.Ping(ctx).Err()
 }
 

@@ -7,9 +7,8 @@ terraform {
     }
   }
 
-  # Remote state in S3 — create this bucket manually before first `terraform init`
   backend "s3" {
-    bucket         = "prism-terraform-state"
+    bucket         = "prism-terraform-state-301178568950"
     key            = "prod/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "prism-terraform-locks"
@@ -58,12 +57,33 @@ module "rds" {
   db_password        = var.db_password
 }
 
-module "elasticache" {
-  source             = "../../modules/elasticache"
+module "sqs" {
+  source       = "../../modules/sqs"
+  project_name = var.project_name
+  environment  = var.environment
+}
+
+module "cloudfront" {
+  source        = "../../modules/cloudfront"
+  project_name  = var.project_name
+  environment   = var.environment
+  custom_domain = var.custom_domain
+}
+
+locals {
+  # Build CORS allowed origins: always include API GW + CloudFront default domain,
+  # and optionally the custom CNAME domain if configured.
+  base_origins = "${module.apigateway.api_url},https://${module.cloudfront.cloudfront_domain}"
+  allowed_origins = var.custom_domain != "" ? "${local.base_origins},https://${var.custom_domain}" : local.base_origins
+}
+
+module "apigateway" {
+  source             = "../../modules/apigateway"
   project_name       = var.project_name
   environment        = var.environment
+  vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
-  security_group_id  = module.security_groups.redis_sg_id
+  ecs_sg_id          = module.security_groups.ecs_sg_id
 }
 
 module "secrets" {
@@ -73,20 +93,12 @@ module "secrets" {
 }
 
 module "iam" {
-  source       = "../../modules/iam"
-  project_name = var.project_name
-  environment  = var.environment
+  source        = "../../modules/iam"
+  project_name  = var.project_name
+  environment   = var.environment
   s3_bucket_arn = module.s3.bucket_arn
-  secret_arns  = module.secrets.all_secret_arns
-}
-
-module "alb" {
-  source            = "../../modules/alb"
-  project_name      = var.project_name
-  environment       = var.environment
-  vpc_id            = module.vpc.vpc_id
-  public_subnet_ids = module.vpc.public_subnet_ids
-  alb_sg_id         = module.security_groups.alb_sg_id
+  secret_arns   = module.secrets.all_secret_arns
+  sqs_queue_arn = module.sqs.queue_arn
 }
 
 module "ecs" {
@@ -98,18 +110,15 @@ module "ecs" {
   ecs_sg_id          = module.security_groups.ecs_sg_id
   execution_role_arn = module.iam.execution_role_arn
   task_role_arn      = module.iam.task_role_arn
+  service_registry_arn = module.apigateway.service_discovery_arn
 
-  web_image     = "${module.ecr.web_repo_url}:latest"
   gateway_image = "${module.ecr.gateway_repo_url}:latest"
   worker_image  = "${module.ecr.worker_repo_url}:latest"
 
-  web_tg_arn     = module.alb.web_tg_arn
-  gateway_tg_arn = module.alb.gateway_tg_arn
-
   db_url          = "postgresql://${var.db_username}:${var.db_password}@${module.rds.endpoint}/${var.db_name}?sslmode=require"
-  redis_url       = "rediss://${module.elasticache.primary_endpoint}:6379/0"
   s3_bucket       = module.s3.bucket_name
-  allowed_origins = var.allowed_origins
+  sqs_queue_url   = module.sqs.queue_url
+  allowed_origins = local.allowed_origins
 
   jwt_secret_arn     = module.secrets.jwt_secret_arn
   encryption_key_arn = module.secrets.encryption_key_arn
@@ -121,4 +130,5 @@ module "autoscaling" {
   environment         = var.environment
   cluster_name        = module.ecs.cluster_name
   worker_service_name = module.ecs.worker_service_name
+  sqs_queue_name      = module.sqs.queue_name
 }

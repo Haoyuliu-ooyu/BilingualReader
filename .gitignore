@@ -42,7 +42,7 @@ CLAUDE.md
 
 # Terraform
 terraform.tfvars
-infra/.terraform/
+**/.terraform/
 *.tfstate*
 
 # Production env

@@ -20,8 +20,8 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [var.security_group_id]
 
-  backup_retention_period   = 7
-  skip_final_snapshot       = false
+  backup_retention_period   = 0
+  skip_final_snapshot       = true
   final_snapshot_identifier = "${var.project_name}-${var.environment}-final-snapshot"
 
   storage_encrypted = true

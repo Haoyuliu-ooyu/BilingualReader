@@ -76,7 +76,7 @@ resource "aws_security_group" "nat" {
 
 resource "aws_instance" "nat" {
   ami                         = data.aws_ami.nat.id
-  instance_type               = "t4g.nano"
+  instance_type               = "t4g.micro"
   subnet_id                   = aws_subnet.public[0].id
   associate_public_ip_address = true
   source_dest_check           = false

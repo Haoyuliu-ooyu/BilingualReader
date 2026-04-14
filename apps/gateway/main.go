@@ -11,6 +11,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"gateway/config"
@@ -86,7 +87,11 @@ func main() {
 	uploadSvc := services.NewUploadService(docRepo, llmKeyRepo, storageService, queueService, logger)
 
 	// Initialize health repository (needs direct access to infrastructure clients)
-	healthRepo := repository.NewHealthRepository(pool, queueService.Client, storageService.Client, storageService.Bucket)
+	var redisClient *redis.Client
+	if queueService != nil {
+		redisClient = queueService.RedisClient
+	}
+	healthRepo := repository.NewHealthRepository(pool, redisClient, storageService.Client, storageService.Bucket)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authSvc, logger)

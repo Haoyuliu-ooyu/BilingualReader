@@ -1,9 +1,18 @@
-output "alb_url" {
-  value = "http://${module.alb.alb_dns_name}"
+output "api_url" {
+  value       = module.apigateway.api_url
+  description = "Public HTTPS URL for the API (use as VITE_API_URL)"
 }
 
-output "ecr_web_url" {
-  value = module.ecr.web_repo_url
+output "cloudfront_url" {
+  value = "https://${module.cloudfront.cloudfront_domain}"
+}
+
+output "frontend_bucket" {
+  value = module.cloudfront.frontend_bucket_name
+}
+
+output "cloudfront_distribution_id" {
+  value = module.cloudfront.cloudfront_distribution_id
 }
 
 output "ecr_gateway_url" {
@@ -19,8 +28,8 @@ output "rds_endpoint" {
   sensitive = true
 }
 
-output "redis_endpoint" {
-  value = module.elasticache.primary_endpoint
+output "sqs_queue_url" {
+  value = module.sqs.queue_url
 }
 
 output "s3_bucket" {

@@ -8,25 +8,29 @@ import (
 
 // Config holds all environment-based configuration for the gateway.
 type Config struct {
-	DBUrl                string
-	RedisURL             string
-	S3Endpoint           string
-	S3Region             string
-	S3Bucket             string
-	AWSAccessKey         string
-	AWSSecretKey         string
-	JWTSecret            string
+	DBUrl                  string
+	RedisURL               string
+	QueueDriver            string
+	SQSQueueURL            string
+	S3Endpoint             string
+	S3Region               string
+	S3Bucket               string
+	AWSAccessKey           string
+	AWSSecretKey           string
+	JWTSecret              string
 	LLMKeyEncryptionSecret string
-	Port                 string
-	AllowedOrigins       []string
-	GinMode              string
+	Port                   string
+	AllowedOrigins         []string
+	GinMode                string
 }
 
 // LoadConfig reads configuration from environment variables and validates required fields.
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		DBUrl:                getEnv("DB_URL", "postgres://postgres:prism@localhost:5432/prism?sslmode=disable"),
-		RedisURL:            getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		RedisURL:             getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		QueueDriver:          getEnv("QUEUE_DRIVER", "redis"),
+		SQSQueueURL:          os.Getenv("SQS_QUEUE_URL"),
 		S3Endpoint:           os.Getenv("S3_ENDPOINT"),
 		S3Region:             os.Getenv("S3_REGION"),
 		S3Bucket:             getEnv("S3_BUCKET", "raw-documents"),

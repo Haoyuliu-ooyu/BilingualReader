@@ -9,22 +9,10 @@ AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ECR_BASE="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
-# Service names match ECR repository names
-SERVICES=("web" "gateway" "worker")
+# Backend services only (frontend is S3 + CloudFront)
+SERVICES=("gateway" "worker")
 
-# Map service names to build context directories
-declare -A BUILD_CONTEXTS=(
-  ["web"]="apps/web"
-  ["gateway"]="apps/gateway"
-  ["worker"]="apps/worker"
-)
-
-# Build args for specific services
-declare -A BUILD_ARGS=(
-  ["web"]="--build-arg VITE_API_URL=http://$(terraform -chdir=infra/environments/${ENVIRONMENT} output -raw alb_url 2>/dev/null || echo 'ALB_URL_PENDING')/api"
-  ["gateway"]=""
-  ["worker"]=""
-)
+# Contexts are simply apps/<service>
 
 # ─── Functions ────────────────────────────────────────────
 
@@ -32,22 +20,21 @@ usage() {
   echo "Usage: $0 [command] [options]"
   echo ""
   echo "Commands:"
-  echo "  build       Build Docker images"
+  echo "  build       Build Docker images (gateway, worker)"
   echo "  push        Push images to ECR"
   echo "  deploy      Force new ECS deployment"
-  echo "  all         Build + Push + Deploy (default)"
+  echo "  frontend    Build and deploy frontend to S3 + CloudFront"
+  echo "  all         Build + Push + Deploy backend + Frontend"
   echo "  status      Show current ECS service status"
   echo ""
   echo "Options:"
-  echo "  --service   Deploy a single service (web|gateway|worker)"
+  echo "  --service   Deploy a single backend service (gateway|worker)"
   echo "  --tag       Image tag (default: latest)"
-  echo "  --env       Environment (default: staging)"
   echo ""
   echo "Examples:"
-  echo "  $0 all                          # Full deploy of all services"
-  echo "  $0 build --service gateway      # Build only gateway"
-  echo "  $0 deploy --service worker      # Redeploy only worker"
-  echo "  $0 all --env prod --tag v1.2.3  # Deploy specific tag to prod"
+  echo "  $0 all                          # Full deploy (backend + frontend)"
+  echo "  $0 frontend                     # Deploy only frontend"
+  echo "  $0 deploy --service gateway     # Redeploy only gateway"
 }
 
 ecr_login() {
@@ -59,12 +46,9 @@ ecr_login() {
 build_images() {
   local services=("$@")
   for service in "${services[@]}"; do
-    local context="${BUILD_CONTEXTS[$service]}"
-    local args="${BUILD_ARGS[$service]:-}"
+    local context="apps/${service}"
     echo "🔨 Building ${service} from ${context}..."
-    docker build ${args} \
-      -t "${PROJECT}/${service}:${IMAGE_TAG}" \
-      "./${context}/"
+    docker build --platform linux/arm64 -t "${PROJECT}/${service}:${IMAGE_TAG}" "./${context}/"
   done
 }
 
@@ -90,22 +74,55 @@ deploy_services() {
       --region "${AWS_REGION}" \
       --no-cli-pager
   done
-  echo ""
-  echo "✅ Deployment triggered! Monitor at:"
-  echo "   https://${AWS_REGION}.console.aws.amazon.com/ecs/v2/clusters/${PROJECT}-${ENVIRONMENT}-cluster/services"
+  echo "✅ Backend deployment triggered!"
+}
+
+deploy_frontend() {
+  echo "🌐 Building frontend..."
+
+  # Get the API Gateway URL via AWS CLI
+  VITE_API_URL=$(aws apigatewayv2 get-apis --query "Items[?Name=='${PROJECT}-${ENVIRONMENT}-api'].ApiEndpoint | [0]" --output text)
+  echo "   VITE_API_URL=${VITE_API_URL}"
+
+  # Build
+  cd apps/web
+  VITE_API_URL="${VITE_API_URL}" npm run build
+  cd ../..
+
+  # Deterministic S3 bucket name
+  FRONTEND_BUCKET="${PROJECT}-${ENVIRONMENT}-frontend-${AWS_ACCOUNT_ID}"
+  
+  # Get CloudFront distribution ID via AWS CLI
+  CF_DIST_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[0].Id=='${FRONTEND_BUCKET}'].Id | [0]" --output text)
+  if [ "$CF_DIST_ID" = "None" ]; then CF_DIST_ID=""; fi
+
+  # Upload to S3
+  echo "📤 Uploading to S3: ${FRONTEND_BUCKET}..."
+  aws s3 sync apps/web/dist/ "s3://${FRONTEND_BUCKET}/" --delete
+
+  # Invalidate CloudFront cache
+  if [ -n "$CF_DIST_ID" ]; then
+    echo "🔄 Invalidating CloudFront cache..."
+    aws cloudfront create-invalidation \
+      --distribution-id "${CF_DIST_ID}" \
+      --paths "/*" \
+      --no-cli-pager
+  fi
+
+  echo "✅ Frontend deployed!"
 }
 
 show_status() {
   echo "📊 ECS Service Status (${ENVIRONMENT}):"
   echo ""
   for service in "${SERVICES[@]}"; do
-    local status=$(aws ecs describe-services \
+    echo "  ${service}:"
+    aws ecs describe-services \
       --cluster "${PROJECT}-${ENVIRONMENT}-cluster" \
       --services "${PROJECT}-${ENVIRONMENT}-${service}" \
       --query 'services[0].{desired:desiredCount,running:runningCount,status:status}' \
       --output table \
-      --region "${AWS_REGION}" 2>/dev/null || echo "  Not found")
-    echo "  ${service}: ${status}"
+      --region "${AWS_REGION}" 2>/dev/null || echo "    Not found"
   done
 }
 
@@ -120,7 +137,6 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --service) TARGET_SERVICES=("$2"); shift 2 ;;
     --tag)     IMAGE_TAG="$2"; shift 2 ;;
-    --env)     ENVIRONMENT="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *)         echo "Unknown option: $1"; usage; exit 1 ;;
   esac
@@ -129,26 +145,16 @@ done
 # ─── Execute ──────────────────────────────────────────────
 
 case $COMMAND in
-  build)
-    build_images "${TARGET_SERVICES[@]}"
-    ;;
-  push)
-    push_images "${TARGET_SERVICES[@]}"
-    ;;
-  deploy)
-    deploy_services "${TARGET_SERVICES[@]}"
-    ;;
+  build)     build_images "${TARGET_SERVICES[@]}" ;;
+  push)      push_images "${TARGET_SERVICES[@]}" ;;
+  deploy)    deploy_services "${TARGET_SERVICES[@]}" ;;
+  frontend)  deploy_frontend ;;
   all)
     build_images "${TARGET_SERVICES[@]}"
     push_images "${TARGET_SERVICES[@]}"
     deploy_services "${TARGET_SERVICES[@]}"
+    deploy_frontend
     ;;
-  status)
-    show_status
-    ;;
-  *)
-    echo "Unknown command: $COMMAND"
-    usage
-    exit 1
-    ;;
+  status)    show_status ;;
+  *)         echo "Unknown command: $COMMAND"; usage; exit 1 ;;
 esac

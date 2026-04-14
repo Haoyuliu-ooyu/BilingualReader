@@ -1,4 +1,4 @@
-.PHONY: dev dev-down dev-logs deploy deploy-service status
+.PHONY: dev dev-down dev-logs deploy deploy-service deploy-frontend status
 
 # Start all services for local development
 # env_file directives in docker-compose.yml load .env.dev (infra) + .env (secrets)
@@ -20,6 +20,10 @@ deploy:
 # Deploy a single service (usage: make deploy-service SERVICE=gateway)
 deploy-service:
 	./deploy.sh all --service $(SERVICE)
+
+# Deploy frontend to S3 + CloudFront
+deploy-frontend:
+	./deploy.sh frontend
 
 # Show ECS service status
 status:
